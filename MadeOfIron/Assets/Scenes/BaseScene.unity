@@ -220,7 +220,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: ESFERA
+  m_text: 3x1
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -351,7 +351,7 @@ GameObject:
   - component: {fileID: 485662254}
   - component: {fileID: 485662253}
   m_Layer: 5
-  m_Name: ButtonPrefab3(cilindro)
+  m_Name: ButtonPrefab3(2x2)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -423,7 +423,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1323796301}
         m_TargetAssemblyTypeName: UIManager, Assembly-CSharp
-        m_MethodName: SelectCylinder
+        m_MethodName: OnSelectBuilding2x2Pressed
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -607,9 +607,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'CILINDRO
-
-'
+  m_text: 2x2
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -1394,9 +1392,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'CUBO
-
-'
+  m_text: 1x1
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -1511,9 +1507,12 @@ MonoBehaviour:
   groundLayer:
     serializedVersion: 2
     m_Bits: 8
-  cubePrefab: {fileID: 4890473729600537933, guid: aed3ee30da57c2c41b657883dc74a838, type: 3}
-  spherePrefab: {fileID: 1343314614260101425, guid: 50c3bc988eb8dcd45964e4c98da01fb7, type: 3}
-  cylinderPrefab: {fileID: 5986674927849162103, guid: 35a2b7d6a34a82d49a68eeb3116e71ca, type: 3}
+  buildingCatalog:
+  - {fileID: 11400000, guid: c670711ea3e8c0f4c9484912ead31b61, type: 2}
+  - {fileID: 11400000, guid: 5b71ecdaaaf208f4e860c6fb87001a82, type: 2}
+  - {fileID: 11400000, guid: 98a183cb8b3238b4da05aecf13aaa35b, type: 2}
+  validPlacementMaterial: {fileID: 2100000, guid: df26406906b47ad4ba501df712c89508, type: 2}
+  invalidPlacementMaterial: {fileID: 2100000, guid: d5c1484d15ed0814a9ea329f893a79c5, type: 2}
 --- !u!4 &2031080062
 Transform:
   m_ObjectHideFlags: 0
@@ -1542,7 +1541,7 @@ GameObject:
   - component: {fileID: 2061868790}
   - component: {fileID: 2061868789}
   m_Layer: 5
-  m_Name: ButtonPrefab2(esfera)
+  m_Name: ButtonPrefab2(3x1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1614,7 +1613,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1323796301}
         m_TargetAssemblyTypeName: UIManager, Assembly-CSharp
-        m_MethodName: SelectSphere
+        m_MethodName: OnSelectBuilding3x1Pressed
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -1675,7 +1674,7 @@ GameObject:
   - component: {fileID: 2062666034}
   - component: {fileID: 2062666033}
   m_Layer: 5
-  m_Name: ButtonPrefab1(cubo)
+  m_Name: ButtonPrefab1(1x1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1747,7 +1746,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1323796301}
         m_TargetAssemblyTypeName: UIManager, Assembly-CSharp
-        m_MethodName: SelectCube
+        m_MethodName: OnSelectBuilding1x1Pressed
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
