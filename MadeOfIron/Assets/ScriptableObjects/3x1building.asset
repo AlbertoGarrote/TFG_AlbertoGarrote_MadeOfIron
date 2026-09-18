@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94ea7567c2eb14a4d9b5f552407e225e, type: 3}
   m_Name: 3x1building
   m_EditorClassIdentifier: Assembly-CSharp::BuildingItemSO
-  buildingName: 3x1
+  buildingName: "L\xEDnea"
   icon: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
   width: 3
   length: 1

@@ -237,6 +237,10 @@ public class GridPlacementManager : MonoBehaviour
                     Vector3 worldPos = CalculateWorldPosition(gridCoord.x, gridCoord.y, width, length);
                     GameObject newObject = Instantiate(selectedBuilding.prefab, worldPos, Quaternion.identity);
                     newObject.transform.SetParent(gridContainer);
+
+                    // Adjuntar y configurar el script de selección
+                    BuildingObject buildingComp = newObject.AddComponent<BuildingObject>();
+                    buildingComp.Initialize(selectedBuilding);
                 }
                 else
                 {
@@ -276,6 +280,10 @@ public class GridPlacementManager : MonoBehaviour
                 cube.transform.SetParent(buildingGroup.transform);
             }
         }
+
+        // Adjuntar y configurar el script de selección al grupo prototipo
+        BuildingObject buildingComp = buildingGroup.AddComponent<BuildingObject>();
+        buildingComp.Initialize(selectedBuilding);
     }
 
     Vector2Int GetGridCoordinates(Vector3 hitPoint, int width, int length)
