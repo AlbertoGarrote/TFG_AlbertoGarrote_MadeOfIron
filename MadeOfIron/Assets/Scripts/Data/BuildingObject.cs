@@ -6,14 +6,20 @@ public class BuildingObject : MonoBehaviour
     [Header("Información del Edificio")]
     public BuildingItemSO buildingData;
 
+    // Guardamos las coordenadas exactas de la grilla
+    public int gridX { get; private set; }
+    public int gridZ { get; private set; }
+
     private Canvas worldCanvas;
     private TextMeshProUGUI infoText;
     private Renderer[] renderers;
     private Color[] originalColors;
 
-    public void Initialize(BuildingItemSO data)
+    public void Initialize(BuildingItemSO data, int startX, int startZ)
     {
         buildingData = data;
+        gridX = startX;
+        gridZ = startZ;
 
         // Asignar capa "Building" automáticamente a todos los hijos
         int buildingLayerIndex = LayerMask.NameToLayer("Building");

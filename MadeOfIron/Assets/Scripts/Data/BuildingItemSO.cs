@@ -1,9 +1,10 @@
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "NewBuildingItem", menuName = "RTS/Building Item")]
+[CreateAssetMenu(fileName = "NewBuildingItem", menuName = "Grid System/Building Item")]
 public class BuildingItemSO : ScriptableObject
 {
     [Header("Información Básica")]
+    public string buildingId;
     public string buildingName = "Nuevo Edificio";
     public Sprite icon; // Para mostrar en la tienda UI
 

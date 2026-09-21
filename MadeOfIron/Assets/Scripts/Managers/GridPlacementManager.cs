@@ -238,9 +238,8 @@ public class GridPlacementManager : MonoBehaviour
                     GameObject newObject = Instantiate(selectedBuilding.prefab, worldPos, Quaternion.identity);
                     newObject.transform.SetParent(gridContainer);
 
-                    // Adjuntar y configurar el script de selección
                     BuildingObject buildingComp = newObject.AddComponent<BuildingObject>();
-                    buildingComp.Initialize(selectedBuilding);
+                    buildingComp.Initialize(selectedBuilding, gridCoord.x, gridCoord.y);
                 }
                 else
                 {
@@ -248,8 +247,6 @@ public class GridPlacementManager : MonoBehaviour
                 }
 
                 MarkCellsOccupied(gridCoord.x, gridCoord.y, width, length, true);
-
-                // Actualizar inmediatamente el estado del Ghost tras colocar para que se ponga rojo
                 UpdateGhostPreview(mouseScreenPosition);
             }
             else
@@ -281,9 +278,9 @@ public class GridPlacementManager : MonoBehaviour
             }
         }
 
-        // Adjuntar y configurar el script de selección al grupo prototipo
+        // Inicializamos el componente en el objeto PADRE con las coordenadas iniciales exactas
         BuildingObject buildingComp = buildingGroup.AddComponent<BuildingObject>();
-        buildingComp.Initialize(selectedBuilding);
+        buildingComp.Initialize(selectedBuilding, startX, startZ);
     }
 
     Vector2Int GetGridCoordinates(Vector3 hitPoint, int width, int length)
@@ -335,5 +332,82 @@ public class GridPlacementManager : MonoBehaviour
         // Refrescar el preview
         var mouse = Mouse.current;
         if (mouse != null) UpdateGhostPreview(mouse.position.ReadValue());
+    }
+
+
+    // METODOS DE EXPORTACIÓN E IMPORTACIÓN
+
+    // Método para obtener todos los datos de los edificios colocados actualmente
+    public GridSaveData ExportGridState()
+    {
+        GridSaveData saveData = new GridSaveData();
+
+        // Iteramos SOLO sobre los objetos raíz alojados directamente en el contenedor (un edificio por objeto padre)
+        foreach (Transform child in gridContainer)
+        {
+            BuildingObject buildingObj = child.GetComponent<BuildingObject>();
+            if (buildingObj != null && buildingObj.buildingData != null)
+            {
+                PlacedBuildingData data = new PlacedBuildingData
+                {
+                    buildingId = string.IsNullOrEmpty(buildingObj.buildingData.buildingId)
+                                 ? buildingObj.buildingData.name
+                                 : buildingObj.buildingData.buildingId,
+                    gridX = buildingObj.gridX,
+                    gridZ = buildingObj.gridZ
+                };
+
+                saveData.placedBuildings.Add(data);
+            }
+        }
+
+        return saveData;
+    }
+
+    // Método para regenerar un edificio específico desde las coordenadas guardadas
+    public void PlaceBuildingFromData(BuildingItemSO buildingSO, int startX, int startZ)
+    {
+        int width = buildingSO.width;
+        int length = buildingSO.length;
+
+        if (CanPlaceObject(startX, startZ, width, length))
+        {
+            Vector3 worldPos = CalculateWorldPosition(startX, startZ, width, length);
+            GameObject newObject;
+
+            if (buildingSO.prefab != null)
+            {
+                newObject = Instantiate(buildingSO.prefab, worldPos, Quaternion.identity);
+            }
+            else
+            {
+                newObject = new GameObject($"BuildingPrototipo_{width}x{length}");
+                newObject.transform.position = worldPos;
+
+                for (int x = startX; x < startX + width; x++)
+                {
+                    for (int z = startZ; z < startZ + length; z++)
+                    {
+                        Vector3 cubePos = new Vector3(
+                            (x * cellSize) + (cellSize / 2.0f),
+                            0.5f,
+                            (z * cellSize) + (cellSize / 2.0f)
+                        );
+
+                        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        cube.transform.position = cubePos;
+                        cube.transform.localScale = Vector3.one * (cellSize * 0.95f);
+                        cube.transform.SetParent(newObject.transform);
+                    }
+                }
+            }
+
+            newObject.transform.SetParent(gridContainer);
+
+            BuildingObject buildingComp = newObject.AddComponent<BuildingObject>();
+            buildingComp.Initialize(buildingSO, startX, startZ);
+
+            MarkCellsOccupied(startX, startZ, width, length, true);
+        }
     }
 }
