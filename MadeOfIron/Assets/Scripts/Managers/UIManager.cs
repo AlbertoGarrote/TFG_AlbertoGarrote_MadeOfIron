@@ -45,6 +45,22 @@ public class UIManager : MonoBehaviour
             GameManager.Instance.ChangeState(BaseState.Editing);
     }
 
+    public void OnClickAttackButton()
+    {
+        if (placementManager == null) return;
+
+        // Exportamos la base actual reutilizando nuestra función
+        GridSaveData saveData = placementManager.ExportGridState();
+        string jsonOutput = JsonUtility.ToJson(saveData);
+
+        // Mandamos el JSON al GameManager e iniciamos el cambio de escena
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.StartAttackSequence(jsonOutput, "AttackScene");
+            // Asegúrate de poner el nombre exacto de tu escena de ataque
+        }
+    }
+
     // --- MÉTODOS DE LA UI ---
     // La UI solo notifica qué opción se pulsó, delegando la responsabilidad al GridPlacementManager
     public void OnSelectBuilding1x1Pressed() => placementManager?.SelectBuildingIndex(0);

@@ -1,12 +1,14 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 // Definición de los estados de la escena de la base
 public enum BaseState
 {
     Exploration, // Modo normal: ver recursos, interactuar con edificios existentes, abrir menús
-    Editing      // Modo construcción/edición: colocar nuevos objetos, mover o borrar estructuras
+    Editing,      // Modo construcción/edición: colocar nuevos objetos, mover o borrar estructuras
+    Attacking    // Modo ataque: escena de combate/simulación
 }
 
 public class GameManager : MonoBehaviour
@@ -16,6 +18,8 @@ public class GameManager : MonoBehaviour
 
     [Header("Estado Actual")]
     public BaseState CurrentState { get; private set; } = BaseState.Exploration;
+
+    public string BaseToAttackJson { get; set; }
 
     // Evento C# para notificar a otros scripts cuando el estado cambie
     public event Action<BaseState> OnStateChanged;
@@ -44,28 +48,26 @@ public class GameManager : MonoBehaviour
         OnStateChanged?.Invoke(CurrentState);
     }
 
+    // Método que llama el botón "Atacar" desde la base
+    public void StartAttackSequence(string jsonLayout, string attackSceneName = "AttackScene")
+    {
+        BaseToAttackJson = jsonLayout;
+        ChangeState(BaseState.Attacking);
+
+        // Cambiamos a la escena de ataque
+        SceneManager.LoadScene(attackSceneName);
+    }
+
+    // Método para volver a la aldea desde la escena de ataque
+    public void ReturnToBuildMode(string buildSceneName = "BuildScene")
+    {
+        ChangeState(BaseState.Exploration);
+        SceneManager.LoadScene(buildSceneName);
+    }
+
     // Métodos helper rápidos
     public bool IsEditing() => CurrentState == BaseState.Editing;
     public bool IsExploring() => CurrentState == BaseState.Exploration;
+    public bool IsAttacking() => CurrentState == BaseState.Attacking;
 
-    void Update()
-    {
-        // DEBUG TEMPORAL
-        var keyboard = Keyboard.current;
-        if (keyboard == null) return;
-
-        // Al pulsar la tecla 'E', alternamos el estado
-        if (keyboard.eKey.wasPressedThisFrame)
-        {
-            if (CurrentState == BaseState.Exploration)
-            {
-                ChangeState(BaseState.Editing);
-            }
-            else
-            {
-                ChangeState(BaseState.Editing); // Pasa a Exploración
-                ChangeState(BaseState.Exploration);
-            }
-        }
-    }
 }
