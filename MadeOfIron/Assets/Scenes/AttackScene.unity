@@ -233,6 +233,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AttackSceneManager
   placementManager: {fileID: 248457903}
   navMeshSurface: {fileID: 1983524833}
+  unitPrefab: {fileID: 1125555183427129416, guid: c9d15b282bcb49b4781c56b652d319f5, type: 3}
 --- !u!1 &1043209768
 GameObject:
   m_ObjectHideFlags: 0
@@ -1098,7 +1099,7 @@ MonoBehaviour:
   m_OverrideTileSize: 0
   m_TileSize: 256
   m_OverrideVoxelSize: 0
-  m_VoxelSize: 0.16666667
+  m_VoxelSize: 0.06666667
   m_MinRegionArea: 2
   m_NavMeshData: {fileID: 0}
   m_BuildHeightMesh: 0
