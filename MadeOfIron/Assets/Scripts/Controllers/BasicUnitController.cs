@@ -10,6 +10,8 @@ public class UnitController : MonoBehaviour
 
     public SpriteRenderer spriteRenderer;
 
+    public GameObject selectionIndicator;
+
     public bool lockYRotation = true;
 
     [Header("Configuración de Raycast")]
@@ -17,6 +19,8 @@ public class UnitController : MonoBehaviour
     public LayerMask groundLayer;
 
     public float movementThreshold = 0.1f;
+
+    public bool IsSelected { get; private set; }
 
     private void Awake()
     {
@@ -26,6 +30,8 @@ public class UnitController : MonoBehaviour
         {
             spriteRenderer = GetComponentInChildren<SpriteRenderer>();
         }
+
+        SetSelected(false);
     }
 
     private void Start()
@@ -41,26 +47,23 @@ public class UnitController : MonoBehaviour
             if (mainCamera == null) return;
         }
 
-        // Comprobamos si el puntero (Ratón o Pantalla Táctil) ha presionado en este frame
-        if (Pointer.current != null && Pointer.current.press.wasPressedThisFrame)
-        {
-            // Leemos la posición actual del cursor/puntero en la pantalla
-            Vector2 screenPosition = Pointer.current.position.ReadValue();
-            MoveToScreenPosition(screenPosition);
-        }
-
         HandleSpriteFlip();
     }
 
-    private void MoveToScreenPosition(Vector2 screenPosition)
+    public void SetSelected(bool selected)
     {
-        Ray ray = mainCamera.ScreenPointToRay(screenPosition);
-
-        // Si el Raycast impacta contra la capa del suelo
-        if (Physics.Raycast(ray, out RaycastHit hit, 500f, groundLayer))
+        IsSelected = selected;
+        if (selectionIndicator != null)
         {
-            // Ordenamos al NavMeshAgent que calcule la ruta hasta el punto
-            agent.SetDestination(hit.point);
+            selectionIndicator.SetActive(selected);
+        }
+    }
+
+    public void MoveToDestination(Vector3 destination)
+    {
+        if (agent != null && agent.isActiveAndEnabled)
+        {
+            agent.SetDestination(destination);
         }
     }
 

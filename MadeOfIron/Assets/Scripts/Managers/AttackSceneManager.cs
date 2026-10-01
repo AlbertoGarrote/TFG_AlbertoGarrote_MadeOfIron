@@ -13,6 +13,8 @@ public class AttackSceneManager : MonoBehaviour
     [Header("Spawneo de Unidades")]
     public GameObject unitPrefab; // Asigna aquí el prefab de tu unidad de ataque
 
+    public int unitsToSpawn = 4;
+
     private IEnumerator Start()
     {
         // Esperamos un frame para asegurar la inicialización de los componentes
@@ -46,7 +48,7 @@ public class AttackSceneManager : MonoBehaviour
         BakeNavMesh();
 
         // 4. Spawnear la unidad en el centro sobre el NavMesh recién calculado
-        SpawnUnitAtCenter();
+        SpawnUnitsAtCenter();
     }
 
     private void LoadBaseFromJSON(string jsonContent)
@@ -90,33 +92,32 @@ public class AttackSceneManager : MonoBehaviour
         }
     }
 
-    private void SpawnUnitAtCenter()
+    private void SpawnUnitsAtCenter()
     {
-        if (unitPrefab == null)
-        {
-            Debug.LogWarning("[AttackSceneManager] No se ha asignado 'unitPrefab' en el Inspector.");
-            return;
-        }
+        if (unitPrefab == null) return;
 
-        // Buscamos el centro aproximado de la matriz (asumiendo matriz de 50x50 o usando el origen)
         Vector3 approximateCenter = Vector3.zero;
         if (placementManager != null)
         {
-            // Calculamos el centro según el tamaño del grid si está disponible
             float centerOffset = (50 * placementManager.cellSize) / 2f;
             approximateCenter = new Vector3(centerOffset, 0f, centerOffset);
         }
 
-        // Buscamos el punto navegable más cercano al centro dentro de un radio razonable
-        NavMeshHit hit;
-        if (NavMesh.SamplePosition(approximateCenter, out hit, 10.0f, NavMesh.AllAreas))
+        for (int i = 0; i < unitsToSpawn; i++)
         {
-            GameObject spawnedUnit = Instantiate(unitPrefab, hit.position, Quaternion.identity);
-            Debug.Log($"[AttackSceneManager] Unidad spawnada exitosamente en el NavMesh en: {hit.position}");
+            // Dispersamos ligeramente el punto inicial de cada unidad
+            Vector3 randomOffset = new Vector3(Random.Range(-3f, 3f), 0f, Random.Range(-3f, 3f));
+
+            if (NavMesh.SamplePosition(approximateCenter + randomOffset, out NavMeshHit hit, 10.0f, NavMesh.AllAreas))
+            {
+                Instantiate(unitPrefab, hit.position, Quaternion.identity);
+            }
         }
-        else
+
+        // Refrescamos el RTSSelectionManager para que reconozca a las nuevas unidades
+        if (SelectionManager.Instance != null)
         {
-            Debug.LogError("[AttackSceneManager] No se encontró ningún punto válido en el NavMesh cerca del centro.");
+            SelectionManager.Instance.RefreshUnitList();
         }
     }
 }
