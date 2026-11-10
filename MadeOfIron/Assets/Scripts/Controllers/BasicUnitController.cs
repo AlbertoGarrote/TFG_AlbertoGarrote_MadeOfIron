@@ -14,6 +14,8 @@ public class UnitController : MonoBehaviour
 
     public bool lockYRotation = true;
 
+    private MusicSoundManager soundController;
+
     [Header("Configuración de Raycast")]
     [Tooltip("Capa que representa el suelo o superficie caminable.")]
     public LayerMask groundLayer;
@@ -30,6 +32,8 @@ public class UnitController : MonoBehaviour
         {
             spriteRenderer = GetComponentInChildren<SpriteRenderer>();
         }
+
+        soundController = ServiceLocator.Get<MusicSoundManager>();
 
         SetSelected(false);
     }
@@ -53,6 +57,9 @@ public class UnitController : MonoBehaviour
     public void SetSelected(bool selected)
     {
         IsSelected = selected;
+
+        soundController.ReproducirSFX3D("Selected", transform.position);
+
         if (selectionIndicator != null)
         {
             selectionIndicator.SetActive(selected);

@@ -5,23 +5,32 @@ public class UIManager : MonoBehaviour
     [Header("Paneles de la UI")]
     public GameObject shopPanel;
 
-    [Header("Referencias a Managers")]
+    [Header("Referencias a Managers (Opcional, se buscan vía ServiceLocator)")]
     public GridPlacementManager placementManager;
+
+    private GridPlacementManager GetPlacementManager()
+    {
+        if (placementManager != null) return placementManager;
+        placementManager = ServiceLocator.Get<GridPlacementManager>();
+        return placementManager;
+    }
 
     private void Start()
     {
-        if (GameManager.Instance != null)
+        var gameManager = ServiceLocator.Get<GameManager>();
+        if (gameManager != null)
         {
-            GameManager.Instance.OnStateChanged += HandleStateChanged;
-            HandleStateChanged(GameManager.Instance.CurrentState);
+            gameManager.OnStateChanged += HandleStateChanged;
+            HandleStateChanged(gameManager.CurrentState);
         }
     }
 
     private void OnDestroy()
     {
-        if (GameManager.Instance != null)
+        var gameManager = ServiceLocator.Get<GameManager>();
+        if (gameManager != null)
         {
-            GameManager.Instance.OnStateChanged -= HandleStateChanged;
+            gameManager.OnStateChanged -= HandleStateChanged;
         }
     }
 
@@ -37,33 +46,36 @@ public class UIManager : MonoBehaviour
 
     public void ToggleEditMode()
     {
-        if (GameManager.Instance == null) return;
+        var gameManager = ServiceLocator.Get<GameManager>();
+        if (gameManager == null) return;
 
-        if (GameManager.Instance.IsEditing())
-            GameManager.Instance.ChangeState(BaseState.Exploration);
+        if (gameManager.IsEditing())
+            gameManager.ChangeState(BaseState.Exploration);
         else
-            GameManager.Instance.ChangeState(BaseState.Editing);
+            gameManager.ChangeState(BaseState.Editing);
     }
 
     public void OnClickAttackButton()
     {
-        if (placementManager == null) return;
+        GridPlacementManager pManager = GetPlacementManager();
+        if (pManager == null) return;
 
         // Exportamos la base actual reutilizando nuestra función
-        GridSaveData saveData = placementManager.ExportGridState();
+        GridSaveData saveData = pManager.ExportGridState();
         string jsonOutput = JsonUtility.ToJson(saveData);
 
         // Mandamos el JSON al GameManager e iniciamos el cambio de escena
-        if (GameManager.Instance != null)
+        var gameManager = ServiceLocator.Get<GameManager>();
+        if (gameManager != null)
         {
-            GameManager.Instance.StartAttackSequence(jsonOutput, "AttackScene");
+            gameManager.StartAttackSequence(jsonOutput, "AttackScene");
             // Asegúrate de poner el nombre exacto de tu escena de ataque
         }
     }
 
     // --- MÉTODOS DE LA UI ---
     // La UI solo notifica qué opción se pulsó, delegando la responsabilidad al GridPlacementManager
-    public void OnSelectBuilding1x1Pressed() => placementManager?.SelectBuildingIndex(0);
-    public void OnSelectBuilding3x1Pressed() => placementManager?.SelectBuildingIndex(1);
-    public void OnSelectBuilding2x2Pressed() => placementManager?.SelectBuildingIndex(2);
+    public void OnSelectBuilding1x1Pressed() => GetPlacementManager()?.SelectBuildingIndex(0);
+    public void OnSelectBuilding3x1Pressed() => GetPlacementManager()?.SelectBuildingIndex(1);
+    public void OnSelectBuilding2x2Pressed() => GetPlacementManager()?.SelectBuildingIndex(2);
 }

@@ -30,6 +30,17 @@ public class SelectionManager : MonoBehaviour
             return;
         }
         Instance = this;
+
+        // Registrar en el ServiceLocator
+        ServiceLocator.Register(this);
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            ServiceLocator.Unregister<SelectionManager>();
+        }
     }
 
     private void Start()

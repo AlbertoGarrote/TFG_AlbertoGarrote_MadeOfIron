@@ -6,7 +6,7 @@ using Unity.AI.Navigation;
 
 public class AttackSceneManager : MonoBehaviour
 {
-    [Header("Referencias Locales")]
+    [Header("Referencias Locales (Opcional, se buscan vía ServiceLocator)")]
     public GridPlacementManager placementManager;
     public NavMeshSurface navMeshSurface;
 
@@ -15,6 +15,13 @@ public class AttackSceneManager : MonoBehaviour
 
     public int unitsToSpawn = 4;
 
+    private GridPlacementManager GetPlacementManager()
+    {
+        if (placementManager != null) return placementManager;
+        placementManager = ServiceLocator.Get<GridPlacementManager>();
+        return placementManager;
+    }
+
     private IEnumerator Start()
     {
         // Esperamos un frame para asegurar la inicialización de los componentes
@@ -22,9 +29,10 @@ public class AttackSceneManager : MonoBehaviour
 
         string jsonToLoad = "";
 
-        if (GameManager.Instance != null && !string.IsNullOrEmpty(GameManager.Instance.BaseToAttackJson))
+        var gameManager = ServiceLocator.Get<GameManager>();
+        if (gameManager != null && !string.IsNullOrEmpty(gameManager.BaseToAttackJson))
         {
-            jsonToLoad = GameManager.Instance.BaseToAttackJson;
+            jsonToLoad = gameManager.BaseToAttackJson;
             Debug.Log("[AttackSceneManager] JSON recibido del GameManager.");
         }
         else
@@ -39,9 +47,10 @@ public class AttackSceneManager : MonoBehaviour
         }
 
         // 2. Desactivar controles de edición
-        if (placementManager != null)
+        GridPlacementManager pManager = GetPlacementManager();
+        if (pManager != null)
         {
-            placementManager.enabled = false;
+            pManager.enabled = false;
         }
 
         // 3. Bake del NavMesh
@@ -53,15 +62,16 @@ public class AttackSceneManager : MonoBehaviour
 
     private void LoadBaseFromJSON(string jsonContent)
     {
-        if (placementManager == null) return;
+        GridPlacementManager pManager = GetPlacementManager();
+        if (pManager == null) return;
 
         GridSaveData saveData = JsonUtility.FromJson<GridSaveData>(jsonContent);
         if (saveData == null || saveData.placedBuildings == null) return;
 
-        placementManager.ClearGrid();
+        pManager.ClearGrid();
 
         var catalogMap = new Dictionary<string, BuildingItemSO>();
-        foreach (var item in placementManager.buildingCatalog)
+        foreach (var item in pManager.buildingCatalog)
         {
             if (item == null) continue;
             string key = !string.IsNullOrEmpty(item.buildingId) ? item.buildingId : item.name;
@@ -72,7 +82,7 @@ public class AttackSceneManager : MonoBehaviour
         {
             if (catalogMap.TryGetValue(bData.buildingId, out BuildingItemSO buildingSO))
             {
-                placementManager.PlaceBuildingFromData(buildingSO, bData.gridX, bData.gridZ);
+                pManager.PlaceBuildingFromData(buildingSO, bData.gridX, bData.gridZ);
             }
         }
     }
@@ -97,9 +107,10 @@ public class AttackSceneManager : MonoBehaviour
         if (unitPrefab == null) return;
 
         Vector3 approximateCenter = Vector3.zero;
-        if (placementManager != null)
+        GridPlacementManager pManager = GetPlacementManager();
+        if (pManager != null)
         {
-            float centerOffset = (50 * placementManager.cellSize) / 2f;
+            float centerOffset = (50 * pManager.cellSize) / 2f;
             approximateCenter = new Vector3(centerOffset, 0f, centerOffset);
         }
 
@@ -114,10 +125,11 @@ public class AttackSceneManager : MonoBehaviour
             }
         }
 
-        // Refrescamos el RTSSelectionManager para que reconozca a las nuevas unidades
-        if (SelectionManager.Instance != null)
+        // Refrescamos el SelectionManager mediante el ServiceLocator para que reconozca a las nuevas unidades
+        var selectionManager = ServiceLocator.Get<SelectionManager>();
+        if (selectionManager != null)
         {
-            SelectionManager.Instance.RefreshUnitList();
+            selectionManager.RefreshUnitList();
         }
     }
 }

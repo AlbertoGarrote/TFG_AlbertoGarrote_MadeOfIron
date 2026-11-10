@@ -41,6 +41,15 @@ public class GridPlacementManager : MonoBehaviour
         {
             SelectBuildingIndex(0);
         }
+
+        // Registrar este manager en el Service Locator
+        ServiceLocator.Register(this);
+    }
+
+    private void OnDestroy()
+    {
+        // Limpiar el registro al destruir el objeto
+        ServiceLocator.Unregister<GridPlacementManager>();
     }
 
     void Update()

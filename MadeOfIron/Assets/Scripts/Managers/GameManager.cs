@@ -33,6 +33,9 @@ public class GameManager : MonoBehaviour
         }
 
         Instance = this;
+
+        ServiceLocator.Register(this); // Registrar en ServiceLocator
+
         DontDestroyOnLoad(gameObject); // Persiste entre escenas si es necesario
     }
 

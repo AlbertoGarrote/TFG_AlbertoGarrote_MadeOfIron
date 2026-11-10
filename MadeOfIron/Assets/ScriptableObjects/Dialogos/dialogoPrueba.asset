@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8b40d3c3c6450b4f8d9cca27f9e930d, type: 3}
+  m_Name: dialogoPrueba
+  m_EditorClassIdentifier: Assembly-CSharp::DialogoSO
+  lineas:
+  - nombrePersonaje: Soldier
+    texto: Hola! Bienvenido a nuestro mundo!
+    retrato: {fileID: -1443005623, guid: 73a0de32ed140b84c9c51cdb3f4a950f, type: 3}
+    sonidoVoz: {fileID: 8300000, guid: ff69f5e93d113c34d9466be6938d8a1e, type: 3}

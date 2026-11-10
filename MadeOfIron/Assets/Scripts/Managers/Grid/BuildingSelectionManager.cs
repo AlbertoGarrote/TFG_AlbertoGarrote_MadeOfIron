@@ -11,18 +11,20 @@ public class BuildingSelectionManager : MonoBehaviour
 
     private void Start()
     {
-        // Suscribirse a cambios de estado para deseleccionar al cambiar a modo Edición
-        if (GameManager.Instance != null)
+        // Suscribirse a cambios de estado mediante el ServiceLocator
+        var gameManager = ServiceLocator.Get<GameManager>();
+        if (gameManager != null)
         {
-            GameManager.Instance.OnStateChanged += HandleStateChanged;
+            gameManager.OnStateChanged += HandleStateChanged;
         }
     }
 
     private void OnDestroy()
     {
-        if (GameManager.Instance != null)
+        var gameManager = ServiceLocator.Get<GameManager>();
+        if (gameManager != null)
         {
-            GameManager.Instance.OnStateChanged -= HandleStateChanged;
+            gameManager.OnStateChanged -= HandleStateChanged;
         }
     }
 
@@ -38,7 +40,8 @@ public class BuildingSelectionManager : MonoBehaviour
     private void Update()
     {
         // Solo permitir selección si estamos estrictamente en MODO EXPLORACIÓN
-        if (GameManager.Instance != null && GameManager.Instance.IsEditing()) return;
+        var gameManager = ServiceLocator.Get<GameManager>();
+        if (gameManager != null && gameManager.IsEditing()) return;
 
         var mouse = Mouse.current;
         if (mouse == null) return;

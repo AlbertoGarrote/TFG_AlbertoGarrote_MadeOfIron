@@ -1,35 +1,43 @@
-using UnityEngine;
 using System.IO;
 using System.Collections.Generic;
-
+using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
 public class GridSaveLoadManager : MonoBehaviour
 {
-    [Header("Referencias")]
+    [Header("Referencias (Opcional, se busca automáticamente vía ServiceLocator)")]
     public GridPlacementManager placementManager;
 
     // Ruta por defecto donde se guardará/leerá el JSON en build o editor
     private string DefaultFilePath => Path.Combine(Application.persistentDataPath, "grid_layout.json");
+
+    private GridPlacementManager GetPlacementManager()
+    {
+        if (placementManager != null) return placementManager;
+
+        placementManager = ServiceLocator.Get<GridPlacementManager>();
+        return placementManager;
+    }
 
     // ==========================================
     // EXPORTAR A JSON
     // ==========================================
     public void ExportGridToJSON()
     {
-        if (placementManager == null)
+        GridPlacementManager pManager = GetPlacementManager();
+        if (pManager == null)
         {
-            Debug.LogError("[SaveLoad] Falta la referencia a GridPlacementManager.");
+            Debug.LogError("[SaveLoad] No se encontró GridPlacementManager en la escena ni en el ServiceLocator.");
             return;
         }
 
-        GridSaveData saveData = placementManager.ExportGridState();
+        GridSaveData saveData = pManager.ExportGridState();
         string jsonOutput = JsonUtility.ToJson(saveData, true);
 
-        // Opción 1: Guardar en Editor mediante diálogo de archivos
 #if UNITY_EDITOR
+        // Opción 1: Guardar en Editor mediante diálogo de archivos
         string path = EditorUtility.SaveFilePanel("Guardar Mapa JSON", "", "grid_layout.json", "json");
         if (!string.IsNullOrEmpty(path))
         {
@@ -50,9 +58,10 @@ public class GridSaveLoadManager : MonoBehaviour
     // ==========================================
     public void ImportGridFromJSON()
     {
-        if (placementManager == null)
+        GridPlacementManager pManager = GetPlacementManager();
+        if (pManager == null)
         {
-            Debug.LogError("[SaveLoad] Falta la referencia a GridPlacementManager.");
+            Debug.LogError("[SaveLoad] No se encontró GridPlacementManager en la escena ni en el ServiceLocator.");
             return;
         }
 
@@ -91,11 +100,11 @@ public class GridSaveLoadManager : MonoBehaviour
         }
 
         // 1. Limpiar el mapa actual antes de cargar
-        placementManager.ClearGrid();
+        pManager.ClearGrid();
 
         // 2. Mapear catálogo de ScriptableObjects para rápida búsqueda por ID o nombre
         Dictionary<string, BuildingItemSO> catalogMap = new Dictionary<string, BuildingItemSO>();
-        foreach (var item in placementManager.buildingCatalog)
+        foreach (var item in pManager.buildingCatalog)
         {
             if (item == null) continue;
             string key = !string.IsNullOrEmpty(item.buildingId) ? item.buildingId : item.name;
@@ -111,7 +120,7 @@ public class GridSaveLoadManager : MonoBehaviour
         {
             if (catalogMap.TryGetValue(bData.buildingId, out BuildingItemSO buildingSO))
             {
-                placementManager.PlaceBuildingFromData(buildingSO, bData.gridX, bData.gridZ);
+                pManager.PlaceBuildingFromData(buildingSO, bData.gridX, bData.gridZ);
                 loadedCount++;
             }
             else
