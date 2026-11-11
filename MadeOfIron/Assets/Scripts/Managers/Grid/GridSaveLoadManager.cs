@@ -1,17 +1,33 @@
-using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 public class GridSaveLoadManager : MonoBehaviour
 {
-    [Header("Referencias (Opcional, se busca automáticamente vía ServiceLocator)")]
-    public GridPlacementManager placementManager;
+    public static GridSaveLoadManager Instance { get; private set; }
 
-    // Ruta por defecto donde se guardará/leerá el JSON en build o editor
-    private string DefaultFilePath => Path.Combine(Application.persistentDataPath, "grid_layout.json");
+    private GridPlacementManager placementManager;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+
+        // Registrar en el ServiceLocator
+        ServiceLocator.Register(this);
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            ServiceLocator.Unregister<GridSaveLoadManager>();
+        }
+    }
 
     private GridPlacementManager GetPlacementManager()
     {
@@ -22,87 +38,60 @@ public class GridSaveLoadManager : MonoBehaviour
     }
 
     // ==========================================
-    // EXPORTAR A JSON
+    // GUARDAR AUTOMÁTICO (Vinculado al AccountManager)
     // ==========================================
-    public void ExportGridToJSON()
+    public void GuardarBaseDelUsuario()
     {
-        GridPlacementManager pManager = GetPlacementManager();
-        if (pManager == null)
+        var accountManager = ServiceLocator.Get<AccountManager>();
+        if (accountManager == null || accountManager.CurrentPlayerData == null)
         {
-            Debug.LogError("[SaveLoad] No se encontró GridPlacementManager en la escena ni en el ServiceLocator.");
+            Debug.LogWarning("[GridSaveLoadManager] No hay una sesión de usuario activa para guardar los datos.");
             return;
         }
 
-        GridSaveData saveData = pManager.ExportGridState();
-        string jsonOutput = JsonUtility.ToJson(saveData, true);
-
-#if UNITY_EDITOR
-        // Opción 1: Guardar en Editor mediante diálogo de archivos
-        string path = EditorUtility.SaveFilePanel("Guardar Mapa JSON", "", "grid_layout.json", "json");
-        if (!string.IsNullOrEmpty(path))
+        GridPlacementManager pManager = GetPlacementManager();
+        if (pManager != null)
         {
-            File.WriteAllText(path, jsonOutput);
-            Debug.Log($"[SaveLoad] Archivo JSON exportado con éxito en: {path}");
+            // Extraemos los edificios colocados en la cuadrícula
+            GridSaveData currentGrid = pManager.ExportGridState();
+            accountManager.CurrentPlayerData.placedBuildings = currentGrid.placedBuildings;
         }
-#else
-        // Opción 2: En Build guardamos en la ruta persistente por defecto
-        File.WriteAllText(DefaultFilePath, jsonOutput);
-        Debug.Log($"[SaveLoad] Archivo JSON guardado en: {DefaultFilePath}");
-#endif
 
-        Debug.Log("<b>Contenido del JSON generado:</b>\n" + jsonOutput);
+        // Llamamos al AccountManager para que persista los cambios en el JSON del usuario
+        accountManager.SaveCurrentPlayerData();
+        Debug.Log("[GridSaveLoadManager] Base y recursos guardados automáticamente en el perfil del usuario.");
     }
 
     // ==========================================
-    // IMPORTAR Y REGENERAR DESDE JSON
+    // CARGAR AUTOMÁTICO (Vinculado al AccountManager)
     // ==========================================
-    public void ImportGridFromJSON()
+    public void CargarBaseDelUsuario()
     {
+        var accountManager = ServiceLocator.Get<AccountManager>();
+        if (accountManager == null || accountManager.CurrentPlayerData == null)
+        {
+            Debug.LogWarning("[GridSaveLoadManager] No se puede cargar la base: No hay usuario activo.");
+            return;
+        }
+
         GridPlacementManager pManager = GetPlacementManager();
         if (pManager == null)
         {
-            Debug.LogError("[SaveLoad] No se encontró GridPlacementManager en la escena ni en el ServiceLocator.");
-            return;
-        }
-
-        string jsonContent = "";
-
-#if UNITY_EDITOR
-        string path = EditorUtility.OpenFilePanel("Cargar Mapa JSON", "", "json");
-        if (!string.IsNullOrEmpty(path) && File.Exists(path))
-        {
-            jsonContent = File.ReadAllText(path);
-        }
-        else
-        {
-            return;
-        }
-#else
-        if (File.Exists(DefaultFilePath))
-        {
-            jsonContent = File.ReadAllText(DefaultFilePath);
-        }
-        else
-        {
-            Debug.LogWarning("[SaveLoad] No se encontró el archivo JSON en: " + DefaultFilePath);
-            return;
-        }
-#endif
-
-        if (string.IsNullOrEmpty(jsonContent)) return;
-
-        GridSaveData saveData = JsonUtility.FromJson<GridSaveData>(jsonContent);
-
-        if (saveData == null || saveData.placedBuildings == null)
-        {
-            Debug.LogError("[SaveLoad] Formato de JSON inválido o corrupto.");
+            Debug.LogError("[GridSaveLoadManager] No se encontró GridPlacementManager.");
             return;
         }
 
         // 1. Limpiar el mapa actual antes de cargar
         pManager.ClearGrid();
 
-        // 2. Mapear catálogo de ScriptableObjects para rápida búsqueda por ID o nombre
+        List<PlacedBuildingData> savedBuildings = accountManager.CurrentPlayerData.placedBuildings;
+        if (savedBuildings == null || savedBuildings.Count == 0)
+        {
+            Debug.Log("[GridSaveLoadManager] El usuario no tiene edificios guardados (base nueva).");
+            return;
+        }
+
+        // 2. Mapear catálogo de ScriptableObjects para rápida búsqueda
         Dictionary<string, BuildingItemSO> catalogMap = new Dictionary<string, BuildingItemSO>();
         foreach (var item in pManager.buildingCatalog)
         {
@@ -114,9 +103,9 @@ public class GridSaveLoadManager : MonoBehaviour
             }
         }
 
-        // 3. Instanciar los edificios según los datos del JSON
+        // 3. Instanciar los edificios según los datos del perfil
         int loadedCount = 0;
-        foreach (PlacedBuildingData bData in saveData.placedBuildings)
+        foreach (PlacedBuildingData bData in savedBuildings)
         {
             if (catalogMap.TryGetValue(bData.buildingId, out BuildingItemSO buildingSO))
             {
@@ -125,10 +114,10 @@ public class GridSaveLoadManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning($"[SaveLoad] No se encontró el ScriptableObject con ID: '{bData.buildingId}' en el catálogo.");
+                Debug.LogWarning($"[GridSaveLoadManager] No se encontró el ScriptableObject con ID: '{bData.buildingId}' en el catálogo.");
             }
         }
 
-        Debug.Log($"[SaveLoad] Carga completada. Se generaron {loadedCount} edificios.");
+        Debug.Log($"[GridSaveLoadManager] Base cargada con éxito para '{accountManager.CurrentPlayerData.username}'. Edificios generados: {loadedCount}");
     }
 }

@@ -4,6 +4,8 @@ using System.Collections.Generic;
 
 public class GridPlacementManager : MonoBehaviour
 {
+    public static GridPlacementManager Instance { get; private set; }
+
     [Header("Configuración de Cuadrícula")]
     public float cellSize = 1.0f;
     public int gridWidth = 50;
@@ -27,12 +29,34 @@ public class GridPlacementManager : MonoBehaviour
     private GameObject ghostContainer;
     private List<Renderer> ghostRenderers = new List<Renderer>();
 
-    void Start()
+    private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+
+        // Registrar este manager en el Service Locator antes de que empiece cualquier Start()
+        ServiceLocator.Register(this);
+
         GameObject containerObj = new GameObject("PlacedObjectsContainer");
         gridContainer = containerObj.transform;
         occupiedCells = new bool[gridWidth, gridLength];
+    }
 
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            ServiceLocator.Unregister<GridPlacementManager>();
+        }
+    }
+
+    void Start()
+    {
         // Crear materiales por defecto en tiempo de ejecución si no se han asignado en el Inspector
         CreateDefaultMaterialsIfNeeded();
 
@@ -41,15 +65,6 @@ public class GridPlacementManager : MonoBehaviour
         {
             SelectBuildingIndex(0);
         }
-
-        // Registrar este manager en el Service Locator
-        ServiceLocator.Register(this);
-    }
-
-    private void OnDestroy()
-    {
-        // Limpiar el registro al destruir el objeto
-        ServiceLocator.Unregister<GridPlacementManager>();
     }
 
     void Update()
@@ -332,6 +347,8 @@ public class GridPlacementManager : MonoBehaviour
 
     public void ClearGrid()
     {
+        if (gridContainer == null) return;
+
         for (int i = gridContainer.childCount - 1; i >= 0; i--)
         {
             Destroy(gridContainer.GetChild(i).gameObject);
@@ -346,12 +363,12 @@ public class GridPlacementManager : MonoBehaviour
 
     // METODOS DE EXPORTACIÓN E IMPORTACIÓN
 
-    // Método para obtener todos los datos de los edificios colocados actualmente
     public GridSaveData ExportGridState()
     {
         GridSaveData saveData = new GridSaveData();
 
-        // Iteramos SOLO sobre los objetos raíz alojados directamente en el contenedor (un edificio por objeto padre)
+        if (gridContainer == null) return saveData;
+
         foreach (Transform child in gridContainer)
         {
             BuildingObject buildingObj = child.GetComponent<BuildingObject>();
@@ -360,8 +377,8 @@ public class GridPlacementManager : MonoBehaviour
                 PlacedBuildingData data = new PlacedBuildingData
                 {
                     buildingId = string.IsNullOrEmpty(buildingObj.buildingData.buildingId)
-                                 ? buildingObj.buildingData.name
-                                 : buildingObj.buildingData.buildingId,
+                                   ? buildingObj.buildingData.name
+                                   : buildingObj.buildingData.buildingId,
                     gridX = buildingObj.gridX,
                     gridZ = buildingObj.gridZ
                 };
@@ -373,7 +390,6 @@ public class GridPlacementManager : MonoBehaviour
         return saveData;
     }
 
-    // Método para regenerar un edificio específico desde las coordenadas guardadas
     public void PlaceBuildingFromData(BuildingItemSO buildingSO, int startX, int startZ)
     {
         int width = buildingSO.width;

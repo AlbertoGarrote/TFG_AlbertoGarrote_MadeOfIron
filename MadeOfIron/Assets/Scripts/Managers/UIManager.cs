@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class UIManager : MonoBehaviour
 {
@@ -22,6 +23,13 @@ public class UIManager : MonoBehaviour
         {
             gameManager.OnStateChanged += HandleStateChanged;
             HandleStateChanged(gameManager.CurrentState);
+        }
+
+        // Cargar automáticamente la base del usuario nada más entrar a la escena de construcción
+        var saveLoadManager = ServiceLocator.Get<GridSaveLoadManager>();
+        if (saveLoadManager != null)
+        {
+            saveLoadManager.CargarBaseDelUsuario();
         }
     }
 
@@ -50,15 +58,34 @@ public class UIManager : MonoBehaviour
         if (gameManager == null) return;
 
         if (gameManager.IsEditing())
+        {
+            // Estábamos editando y vamos a pasar a Exploración -> ¡Es el momento de guardar!
+            var saveLoadManager = ServiceLocator.Get<GridSaveLoadManager>();
+            if (saveLoadManager != null)
+            {
+                saveLoadManager.GuardarBaseDelUsuario();
+            }
+
             gameManager.ChangeState(BaseState.Exploration);
+        }
         else
+        {
+            // Pasamos a modo Edición
             gameManager.ChangeState(BaseState.Editing);
+        }
     }
 
     public void OnClickAttackButton()
     {
         GridPlacementManager pManager = GetPlacementManager();
         if (pManager == null) return;
+
+        // Antes de atacar, nos aseguramos de guardar la base actual en el perfil
+        var saveLoadManager = ServiceLocator.Get<GridSaveLoadManager>();
+        if (saveLoadManager != null)
+        {
+            saveLoadManager.GuardarBaseDelUsuario();
+        }
 
         // Exportamos la base actual reutilizando nuestra función
         GridSaveData saveData = pManager.ExportGridState();
@@ -69,12 +96,35 @@ public class UIManager : MonoBehaviour
         if (gameManager != null)
         {
             gameManager.StartAttackSequence(jsonOutput, "AttackScene");
-            // Asegúrate de poner el nombre exacto de tu escena de ataque
         }
     }
 
+    // ==========================================
+    // NUEVO: BOTÓN DE CIERRE DE SESIÓN
+    // ==========================================
+    public void OnClickLogoutButton()
+    {
+        // 1. Guardar por última vez la base actual antes de salir (por si acaso estaba editando)
+        var saveLoadManager = ServiceLocator.Get<GridSaveLoadManager>();
+        if (saveLoadManager != null)
+        {
+            saveLoadManager.GuardarBaseDelUsuario();
+        }
+
+        // 2. Limpiar la sesión actual del AccountManager
+        var accountManager = ServiceLocator.Get<AccountManager>();
+        if (accountManager != null)
+        {
+            // Opcional: si crearas una función para limpiar el CurrentPlayerData, se llamaría aquí. 
+            // Al cambiar de escena y volver al login, un nuevo login sobrescribirá CurrentPlayerData de todas formas.
+            Debug.Log("[UIManager] Cerrando sesión del usuario actual...");
+        }
+
+        // 3. Volver a la escena de inicio de sesión
+        SceneManager.LoadScene("LoginScene");
+    }
+
     // --- MÉTODOS DE LA UI ---
-    // La UI solo notifica qué opción se pulsó, delegando la responsabilidad al GridPlacementManager
     public void OnSelectBuilding1x1Pressed() => GetPlacementManager()?.SelectBuildingIndex(0);
     public void OnSelectBuilding3x1Pressed() => GetPlacementManager()?.SelectBuildingIndex(1);
     public void OnSelectBuilding2x2Pressed() => GetPlacementManager()?.SelectBuildingIndex(2);
