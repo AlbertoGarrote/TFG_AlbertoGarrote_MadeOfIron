@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -20,6 +21,10 @@ public class GameManager : MonoBehaviour
     public BaseState CurrentState { get; private set; } = BaseState.Exploration;
 
     public string BaseToAttackJson { get; set; }
+
+    [Header("Tropas Seleccionadas para el Ataque")]
+    // Clave: ID de la tropa | Valor: Cantidad seleccionada por el jugador
+    public Dictionary<string, int> tropasSeleccionadasParaAtaque = new Dictionary<string, int>();
 
     // Evento C# para notificar a otros scripts cuando el estado cambie
     public event Action<BaseState> OnStateChanged;
@@ -51,10 +56,11 @@ public class GameManager : MonoBehaviour
         OnStateChanged?.Invoke(CurrentState);
     }
 
-    // Método que llama el botón "Atacar" desde la base
-    public void StartAttackSequence(string jsonLayout, string attackSceneName = "AttackScene")
+    // Método que llama el botón "Atacar" desde la base (actualizado para recibir tropas)
+    public void StartAttackSequence(string jsonLayout, Dictionary<string, int> tropasElegidas, string attackSceneName = "AttackScene")
     {
         BaseToAttackJson = jsonLayout;
+        tropasSeleccionadasParaAtaque = tropasElegidas != null ? new Dictionary<string, int>(tropasElegidas) : new Dictionary<string, int>();
         ChangeState(BaseState.Attacking);
 
         // Cambiamos a la escena de ataque
@@ -62,7 +68,7 @@ public class GameManager : MonoBehaviour
     }
 
     // Método para volver a la aldea desde la escena de ataque
-    public void ReturnToBuildMode(string buildSceneName = "BuildScene")
+    public void ReturnToBuildMode(string buildSceneName = "BaseScene") 
     {
         ChangeState(BaseState.Exploration);
         SceneManager.LoadScene(buildSceneName);
@@ -72,5 +78,4 @@ public class GameManager : MonoBehaviour
     public bool IsEditing() => CurrentState == BaseState.Editing;
     public bool IsExploring() => CurrentState == BaseState.Exploration;
     public bool IsAttacking() => CurrentState == BaseState.Attacking;
-
 }

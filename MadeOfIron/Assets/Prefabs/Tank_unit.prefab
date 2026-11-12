@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 7369025458290398532}
   - component: {fileID: 7448257347851253091}
   m_Layer: 7
-  m_Name: Soldier1_unit
+  m_Name: Tank_unit
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -86,7 +86,7 @@ SpriteRenderer:
   m_SortingOrder: 1
   m_MaskInteraction: 0
   m_Sprite: {fileID: 1127943379, guid: aa378d2044c94e54ab437ff2d277d95c, type: 3}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 1, g: 0, b: 0.826725, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
