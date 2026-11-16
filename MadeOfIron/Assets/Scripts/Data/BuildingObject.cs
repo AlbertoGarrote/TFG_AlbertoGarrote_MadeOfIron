@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.AI;
+using UnityEngine.SceneManagement;
 using TMPro;
 
 public class BuildingObject : MonoBehaviour
@@ -21,7 +23,7 @@ public class BuildingObject : MonoBehaviour
         gridX = startX;
         gridZ = startZ;
 
-        // Asignar capa "Building" automáticamente a todos los hijos
+        // 1. Asignar capa "Building" automáticamente a todos los hijos
         int buildingLayerIndex = LayerMask.NameToLayer("Building");
         if (buildingLayerIndex != -1)
         {
@@ -32,9 +34,19 @@ public class BuildingObject : MonoBehaviour
             }
         }
 
-        renderers = GetComponentsInChildren<Renderer>();
+        // 2. COMPROBAR SI ESTAMOS EN LA ESCENA DE ATAQUE
+        string escenaActual = SceneManager.GetActiveScene().name;
 
-        // Guardar colores originales para poder restaurarlos
+        // CAMBIA "Attack" aquí abajo por el nombre exacto de tu escena de batalla si es diferente
+        bool esEscenaDeAtaque = escenaActual.Contains("Attack") || escenaActual.Contains("Battle");
+
+        if (esEscenaDeAtaque)
+        {
+            ConfigurarFisicasYCombateParaBatalla();
+        }
+
+        // 3. Guardar materiales originales para la selección
+        renderers = GetComponentsInChildren<Renderer>();
         originalColors = new Color[renderers.Length];
         for (int i = 0; i < renderers.Length; i++)
         {
@@ -45,6 +57,60 @@ public class BuildingObject : MonoBehaviour
         }
 
         CreateWorldTextUI();
+    }
+
+    private void ConfigurarFisicasYCombateParaBatalla()
+    {
+        if (buildingData == null) return;
+
+        float cellSize = GridPlacementManager.Instance != null ? GridPlacementManager.Instance.cellSize : 1f;
+        float totalWidth = buildingData.width * cellSize;
+        float totalLength = buildingData.length * cellSize;
+
+        // A) Asegurar que el edificio tiene un BoxCollider en el padre que cubre toda su huella
+        BoxCollider boxCol = GetComponent<BoxCollider>();
+        if (boxCol == null)
+        {
+            boxCol = gameObject.AddComponent<BoxCollider>();
+        }
+
+        if (buildingData.prefab == null)
+        {
+            float centerX = (gridX * cellSize) + (totalWidth / 2f);
+            float centerZ = (gridZ * cellSize) + (totalLength / 2f);
+            boxCol.center = new Vector3(centerX, 0.5f, centerZ);
+        }
+        else
+        {
+            boxCol.center = new Vector3(0f, 1f, 0f);
+        }
+        boxCol.size = new Vector3(totalWidth * 0.98f, 2f, totalLength * 0.98f);
+
+        // B) Configurar NavMeshObstacle con Carve = true para que las tropas lo rodeen
+        NavMeshObstacle obstacle = GetComponent<NavMeshObstacle>();
+        if (obstacle == null)
+        {
+            obstacle = gameObject.AddComponent<NavMeshObstacle>();
+        }
+        obstacle.shape = NavMeshObstacleShape.Box;
+        obstacle.center = boxCol.center;
+        obstacle.size = boxCol.size;
+        obstacle.carving = true;
+
+        // C) Añadir componente de salud
+        BuildingHealth health = GetComponent<BuildingHealth>();
+        if (health == null)
+        {
+            health = gameObject.AddComponent<BuildingHealth>();
+        }
+        health.InitializeHealth(buildingData.maxHealth);
+
+        // D) Añadir la barra de vida visual automática
+        BuildingHealthBar healthBar = GetComponent<BuildingHealthBar>();
+        if (healthBar == null)
+        {
+            gameObject.AddComponent<BuildingHealthBar>();
+        }
     }
 
     private void CreateWorldTextUI()
@@ -70,7 +136,6 @@ public class BuildingObject : MonoBehaviour
 
         infoText = textObj.AddComponent<TextMeshProUGUI>();
 
-        // Asignar fuente por defecto de TextMeshPro si falta
         if (infoText.font == null)
         {
             infoText.font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
@@ -95,7 +160,6 @@ public class BuildingObject : MonoBehaviour
     {
         if (worldCanvas == null) return;
 
-        // Calcular los límites 3D (Bounds) combinando todos los Renderers del edificio
         Bounds combinedBounds = new Bounds(transform.position, Vector3.zero);
         bool hasBounds = false;
 
@@ -115,12 +179,10 @@ public class BuildingObject : MonoBehaviour
             }
         }
 
-        // Determinar la posición superior central
         Vector3 topCenter = hasBounds
             ? new Vector3(combinedBounds.center.x, combinedBounds.max.y + 0.8f, combinedBounds.center.z)
             : transform.position + new Vector3(0, 2.5f, 0);
 
-        // Asignar la posición en coordenadas del mundo
         worldCanvas.transform.position = topCenter;
     }
 
@@ -132,10 +194,8 @@ public class BuildingObject : MonoBehaviour
 
             if (isSelected)
             {
-                // Re-calcular la posición por si el edificio se ha movido
                 PositionCanvasAboveBuilding();
 
-                // Orientar el texto hacia la cámara activa para que no se vea del revés
                 if (Camera.main != null)
                 {
                     worldCanvas.transform.rotation = Quaternion.LookRotation(worldCanvas.transform.position - Camera.main.transform.position);
@@ -143,7 +203,6 @@ public class BuildingObject : MonoBehaviour
             }
         }
 
-        // Aplicar o quitar el color morado de selección
         for (int i = 0; i < renderers.Length; i++)
         {
             if (renderers[i] == null) continue;

@@ -21,7 +21,7 @@ public class AttackSceneManager : MonoBehaviour
     [Header("UI de Batalla y Temporizador")]
     [SerializeField] private TextMeshProUGUI textoTemporizador;
     [SerializeField] private GameObject panelFinBatalla;
-    [SerializeField] private float duracionBatallaSegundos = 60f; 
+    [SerializeField] private float duracionBatallaSegundos = 60f;
 
     private float tiempoRestante;
     private bool batallaTerminada = false;
@@ -49,8 +49,11 @@ public class AttackSceneManager : MonoBehaviour
         // Esperamos un frame para asegurar la inicialización de los componentes y el ServiceLocator
         yield return null;
 
-        string jsonToLoad = "";
+        // 1. Horneamos el NavMesh PRIMERO con el suelo limpio (antes de colocar los edificios)
+        BakeNavMesh();
 
+        // 2. Cargar la base enemiga desde el JSON guardado en GameManager
+        string jsonToLoad = "";
         var gameManager = ServiceLocator.Get<GameManager>();
         if (gameManager != null && !string.IsNullOrEmpty(gameManager.BaseToAttackJson))
         {
@@ -62,21 +65,17 @@ public class AttackSceneManager : MonoBehaviour
             Debug.LogWarning("[AttackSceneManager] No hay JSON guardado en GameManager.");
         }
 
-        // 1. Cargar la base enemiga
         if (!string.IsNullOrEmpty(jsonToLoad))
         {
             LoadBaseFromJSON(jsonToLoad);
         }
 
-        // 2. Desactivar controles de edición
+        // 3. Desactivar controles de edición para que el jugador no pueda construir ni borrar en ataque
         GridPlacementManager pManager = GetPlacementManager();
         if (pManager != null)
         {
             pManager.enabled = false;
         }
-
-        // 3. Bake del NavMesh
-        BakeNavMesh();
 
         // 4. Spawnear las tropas exactas seleccionadas por el jugador
         SpawnUnitsFromSelection();
@@ -107,6 +106,7 @@ public class AttackSceneManager : MonoBehaviour
         {
             if (catalogMap.TryGetValue(bData.buildingId, out BuildingItemSO buildingSO))
             {
+                // Aquí llamamos a GridPlacementManager para instanciar cada edificio en la cuadrícula
                 pManager.PlaceBuildingFromData(buildingSO, bData.gridX, bData.gridZ);
             }
         }
@@ -124,7 +124,7 @@ public class AttackSceneManager : MonoBehaviour
             surface.voxelSize = 0.1f;
 
             surface.BuildNavMesh();
-            Debug.Log("[AttackSceneManager] NavMesh horneado.");
+            Debug.Log("[AttackSceneManager] NavMesh del suelo horneado.");
         }
         else
         {

@@ -12,11 +12,13 @@ public class BuildingItemSO : ScriptableObject
     public int width = 1;  // Eje X
     public int length = 1; // Eje Z
 
+    [Header("Combate y Defensa")]
+    public float maxHealth = 300f;
+
     [Header("Modelo 3D")]
     public GameObject prefab;
 
     [Header("Recursos y Costes (Futuro)")]
-    public int goldCost = 100;
-    public int elixirCost = 0;
+    public int cost = 100;
     public float buildTimeSeconds = 10f;
 }

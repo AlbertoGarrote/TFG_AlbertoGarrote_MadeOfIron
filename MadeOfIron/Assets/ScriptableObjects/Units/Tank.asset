@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac12dbc76e54be048b682569bb9ce90e, type: 3}
+  m_Name: Tank
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDataSO
+  unitId: 2
+  unitName: Tank
+  maxHealth: 300
+  moveSpeed: 3.5
+  attackDamage: 10
+  attackRange: 1.5
+  attackCooldown: 1.2
+  projectilePrefab: {fileID: 0}

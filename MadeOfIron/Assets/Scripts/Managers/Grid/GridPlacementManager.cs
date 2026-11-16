@@ -342,7 +342,7 @@ public class GridPlacementManager : MonoBehaviour
     {
         float xPos = (startX * cellSize) + (width * cellSize / 2.0f);
         float zPos = (startZ * cellSize) + (length * cellSize / 2.0f);
-        return new Vector3(xPos, 0.5f, zPos);
+        return new Vector3(xPos, 0f, zPos);
     }
 
     public void ClearGrid()

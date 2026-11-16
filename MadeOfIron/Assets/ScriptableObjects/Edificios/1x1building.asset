@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 94ea7567c2eb14a4d9b5f552407e225e, type: 3}
-  m_Name: 2x2building
+  m_Name: 1x1building
   m_EditorClassIdentifier: Assembly-CSharp::BuildingItemSO
-  buildingId: 2
-  buildingName: Grande
+  buildingId: 1
+  buildingName: Chiquitito
   icon: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
-  width: 2
-  length: 2
-  prefab: {fileID: 0}
-  goldCost: 100
-  elixirCost: 0
+  width: 1
+  length: 1
+  maxHealth: 300
+  prefab: {fileID: 4890473729600537933, guid: aed3ee30da57c2c41b657883dc74a838, type: 3}
+  cost: 100
   buildTimeSeconds: 10
