@@ -29,6 +29,20 @@ public class GridPlacementManager : MonoBehaviour
     private GameObject ghostContainer;
     private List<Renderer> ghostRenderers = new List<Renderer>();
 
+    [Header("Zona de Spawn Restringida (No construible)")]
+    public bool restrictSpawnArea = true;
+    [Tooltip("Coordenada X inicial del área bloqueada")]
+    public int spawnBlockStartX = 0;
+    [Tooltip("Coordenada Z inicial del área bloqueada")]
+    public int spawnBlockStartZ = 13;
+    [Tooltip("Ancho de la zona prohibida en celdas")]
+    public int spawnBlockWidth = 15;
+    [Tooltip("Largo de la zona prohibida en celdas")]
+    public int spawnBlockLength = 25;
+
+    // Visualizador de la zona bloqueada
+    private GameObject spawnBlockVisualContainer;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -60,6 +74,13 @@ public class GridPlacementManager : MonoBehaviour
         // Crear materiales por defecto en tiempo de ejecución si no se han asignado en el Inspector
         CreateDefaultMaterialsIfNeeded();
 
+        // BLOQUEAR LA ZONA DE SPAWN DE TROPAS
+        if (restrictSpawnArea)
+        {
+            BloquearZonaSpawn();
+            CreateSpawnBlockVisual(); // <--- Creamos los bloques visuales de aviso
+        }
+
         // Seleccionar el primer edificio si existe
         if (buildingCatalog.Count > 0 && buildingCatalog[0] != null)
         {
@@ -67,10 +88,85 @@ public class GridPlacementManager : MonoBehaviour
         }
     }
 
+    private void CreateSpawnBlockVisual()
+    {
+        if (spawnBlockVisualContainer != null) return;
+
+        spawnBlockVisualContainer = new GameObject("SpawnBlockVisualContainer");
+        spawnBlockVisualContainer.transform.SetParent(transform);
+
+        // Creamos pequeños cubos planos (o marcadores) sobre cada celda bloqueada
+        for (int x = spawnBlockStartX; x < spawnBlockStartX + spawnBlockWidth; x++)
+        {
+            for (int z = spawnBlockStartZ; z < spawnBlockStartZ + spawnBlockLength; z++)
+            {
+                if (x >= 0 && x < gridWidth && z >= 0 && z < gridLength)
+                {
+                    Vector3 pos = new Vector3(
+                        (x * cellSize) + (cellSize / 2.0f),
+                        0.02f, // Ligeramente por encima del suelo para que no parpadee (z-fighting)
+                        (z * cellSize) + (cellSize / 2.0f)
+                    );
+
+                    GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    marker.transform.SetParent(spawnBlockVisualContainer.transform);
+                    marker.transform.position = pos;
+                    marker.transform.localScale = new Vector3(cellSize * 0.95f, 0.05f, cellSize * 0.95f); // Muy plano
+
+                    // Desactivar collider para que no moleste con los rayos del ratón
+                    if (marker.TryGetComponent<Collider>(out Collider col))
+                    {
+                        Destroy(col);
+                    }
+
+                    // Pintarlo de rojo semitransparente de advertencia
+                    Renderer rend = marker.GetComponent<Renderer>();
+                    if (rend != null)
+                    {
+                        Material warningMat = new Material(Shader.Find("Standard"));
+                        warningMat.color = new Color(1f, 0f, 0f, 0.35f); // Rojo translúcido
+                        SetMaterialTransparent(warningMat);
+                        rend.material = warningMat;
+                    }
+                }
+            }
+        }
+
+        // Dejarlo oculto por defecto hasta comprobar el modo edición
+        spawnBlockVisualContainer.SetActive(false);
+    }
+
+    private void BloquearZonaSpawn()
+    {
+        for (int x = spawnBlockStartX; x < spawnBlockStartX + spawnBlockWidth; x++)
+        {
+            for (int z = spawnBlockStartZ; z < spawnBlockStartZ + spawnBlockLength; z++)
+            {
+                // Comprobamos que esté dentro de los límites del grid para evitar errores de índice
+                if (x >= 0 && x < gridWidth && z >= 0 && z < gridLength)
+                {
+                    occupiedCells[x, z] = true; // Marcamos la celda como ocupada permanentemente
+                }
+            }
+        }
+        Debug.Log($"[GridPlacementManager] Zona de spawn bloqueada en coordenadas ({spawnBlockStartX}, {spawnBlockStartZ}) de tamaño {spawnBlockWidth}x{spawnBlockLength}.");
+    }
+
     void Update()
     {
-        // Si no estamos en modo Edición, destruir la vista previa si existe y salir
-        if (GameManager.Instance != null && !GameManager.Instance.IsEditing())
+        bool isEditing = GameManager.Instance == null || GameManager.Instance.IsEditing();
+
+        // Controlar la visibilidad de la zona bloqueada según el modo edición
+        if (spawnBlockVisualContainer != null)
+        {
+            if (spawnBlockVisualContainer.activeSelf != isEditing)
+            {
+                spawnBlockVisualContainer.SetActive(isEditing);
+            }
+        }
+
+        // Si no estamos en modo Edición, destruir la vista previa del fantasma si existe y salir
+        if (!isEditing)
         {
             DestroyGhost();
             return;

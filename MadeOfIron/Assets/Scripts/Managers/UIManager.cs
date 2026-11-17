@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI; // Asegúrate de incluir esto para usar Button
 using UnityEngine.SceneManagement;
 
 public class UIManager : MonoBehaviour
@@ -10,6 +11,7 @@ public class UIManager : MonoBehaviour
 
     [Header("Botones de UI")]
     public GameObject armyButton; // Botón para abrir el panel de ejército (solo en Exploración)
+    public Button attackButton;   // Referencia al botón de atacar para bloquearlo visualmente
 
     [Header("Referencias a Managers")]
     public GridPlacementManager placementManager;
@@ -35,6 +37,8 @@ public class UIManager : MonoBehaviour
         {
             saveLoadManager.CargarBaseDelUsuario();
         }
+
+        ActualizarEstadoBotonAtaque();
     }
 
     private void OnDestroy()
@@ -56,6 +60,12 @@ public class UIManager : MonoBehaviour
         // El botón y el panel de ejército solo se gestionan en Exploración
         if (armyButton != null) armyButton.SetActive(isExploring);
         if (armyPanel != null && !isExploring) armyPanel.SetActive(false); // Ocultar si cambia de estado
+
+        // Cada vez que cambiamos de estado (por ejemplo, volvemos a exploración), actualizamos el botón
+        if (isExploring)
+        {
+            ActualizarEstadoBotonAtaque();
+        }
     }
 
     public void ToggleEditMode()
@@ -81,12 +91,50 @@ public class UIManager : MonoBehaviour
     {
         if (armyPanel != null)
         {
-            armyPanel.SetActive(!armyPanel.activeSelf);
+            bool willBeOpen = !armyPanel.activeSelf;
+            armyPanel.SetActive(willBeOpen);
+
+            // Si cerramos el panel de ejército, actualizamos el botón de ataque por si han cambiado las tropas
+            if (!willBeOpen)
+            {
+                ActualizarEstadoBotonAtaque();
+            }
+        }
+    }
+
+    private bool TieneTropasSeleccionadas()
+    {
+        var armyManager = ServiceLocator.Get<ArmyManager>();
+        if (armyManager == null) return false;
+
+        Dictionary<string, int> tropasElegidas = armyManager.ObtenerTropasSeleccionadas();
+        int totalUnidades = 0;
+
+        foreach (var par in tropasElegidas)
+        {
+            totalUnidades += par.Value;
+        }
+
+        return totalUnidades > 0;
+    }
+
+    public void ActualizarEstadoBotonAtaque()
+    {
+        if (attackButton != null)
+        {
+            attackButton.interactable = TieneTropasSeleccionadas();
         }
     }
 
     public void OnClickAttackButton()
     {
+        // Doble comprobación por seguridad por si se invoca por código
+        if (!TieneTropasSeleccionadas())
+        {
+            Debug.LogWarning("[UIManager] No se puede atacar: Se necesita al menos 1 unidad en el ejército.");
+            return;
+        }
+
         GridPlacementManager pManager = GetPlacementManager();
         if (pManager == null) return;
 

@@ -17,6 +17,7 @@ MonoBehaviour:
   icon: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
   width: 1
   length: 1
+  ignoraPorcentajeDestruccion: 1
   maxHealth: 300
   prefab: {fileID: 4890473729600537933, guid: aed3ee30da57c2c41b657883dc74a838, type: 3}
   cost: 100

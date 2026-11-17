@@ -10,6 +10,8 @@ public class BuildingHealth : MonoBehaviour
     // Evento que avisa a la barra de vida: (vidaActual, vidaMaxima)
     public event Action<float, float> OnHealthChanged;
 
+    public event Action<BuildingHealth> OnBuildingDestroyed;
+
     private bool isDestroyed = false;
 
     private void Awake()
@@ -48,6 +50,9 @@ public class BuildingHealth : MonoBehaviour
     {
         if (isDestroyed) return;
         isDestroyed = true;
+
+        // Avisamos al AttackSceneManager que este edificio ha caído
+        OnBuildingDestroyed?.Invoke(this);
 
         Destroy(gameObject);
     }

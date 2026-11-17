@@ -12,6 +12,9 @@ public class BuildingItemSO : ScriptableObject
     public int width = 1;  // Eje X
     public int length = 1; // Eje Z
 
+    [Header("Configuración de Batalla")]
+    public bool ignoraPorcentajeDestruccion = false;
+
     [Header("Combate y Defensa")]
     public float maxHealth = 300f;
 

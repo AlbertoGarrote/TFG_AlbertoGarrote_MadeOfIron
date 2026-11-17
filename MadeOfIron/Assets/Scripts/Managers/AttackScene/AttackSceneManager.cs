@@ -9,8 +9,8 @@ using UnityEngine.SceneManagement;
 [System.Serializable]
 public struct TropaPrefabData
 {
-    public string idTropa;      // Debe coincidir con el idTropa que pusiste en el ArmyManager
-    public GameObject prefab;   // Prefab correspondiente para la batalla
+    public string idTropa;
+    public GameObject prefab;
 }
 
 public class AttackSceneManager : MonoBehaviour
@@ -18,13 +18,19 @@ public class AttackSceneManager : MonoBehaviour
     [Header("Catálogo de Prefabs de Tropas para la Batalla")]
     [SerializeField] private List<TropaPrefabData> catalogoPrefabsTropas = new List<TropaPrefabData>();
 
-    [Header("UI de Batalla y Temporizador")]
+    [Header("UI de Batalla y Progreso")]
     [SerializeField] private TextMeshProUGUI textoTemporizador;
+    [SerializeField] private TextMeshProUGUI textoPorcentajeDestruccion; // Texto UI para mostrar el % ej: "Destrucción: 45%"
     [SerializeField] private GameObject panelFinBatalla;
+    [SerializeField] private TextMeshProUGUI textoResultadoFinBatalla;  // Opcional: Para mostrar "¡Victoria!" o "Derrota / Tiempo Agotado"
     [SerializeField] private float duracionBatallaSegundos = 60f;
 
     private float tiempoRestante;
     private bool batallaTerminada = false;
+
+    // Control de destrucción
+    private int totalEdificiosObjetivo = 0;
+    private int edificiosDestruidos = 0;
 
     private GridPlacementManager GetPlacementManager()
     {
@@ -49,7 +55,7 @@ public class AttackSceneManager : MonoBehaviour
         // Esperamos un frame para asegurar la inicialización de los componentes y el ServiceLocator
         yield return null;
 
-        // 1. Horneamos el NavMesh PRIMERO con el suelo limpio (antes de colocar los edificios)
+        // 1. Horneamos el NavMesh PRIMERO con el suelo limpio
         BakeNavMesh();
 
         // 2. Cargar la base enemiga desde el JSON guardado en GameManager
@@ -58,11 +64,6 @@ public class AttackSceneManager : MonoBehaviour
         if (gameManager != null && !string.IsNullOrEmpty(gameManager.BaseToAttackJson))
         {
             jsonToLoad = gameManager.BaseToAttackJson;
-            Debug.Log("[AttackSceneManager] JSON recibido del GameManager.");
-        }
-        else
-        {
-            Debug.LogWarning("[AttackSceneManager] No hay JSON guardado en GameManager.");
         }
 
         if (!string.IsNullOrEmpty(jsonToLoad))
@@ -70,17 +71,20 @@ public class AttackSceneManager : MonoBehaviour
             LoadBaseFromJSON(jsonToLoad);
         }
 
-        // 3. Desactivar controles de edición para que el jugador no pueda construir ni borrar en ataque
+        // 3. Contar cuántos edificios válidos (excluyendo muros) hay en la base cargada
+        CalcularEdificiosObjetivo();
+
+        // 4. Desactivar controles de edición
         GridPlacementManager pManager = GetPlacementManager();
         if (pManager != null)
         {
             pManager.enabled = false;
         }
 
-        // 4. Spawnear las tropas exactas seleccionadas por el jugador
+        // 5. Spawnear las tropas seleccionadas
         SpawnUnitsFromSelection();
 
-        // 5. Iniciar el temporizador de la batalla
+        // 6. Iniciar el temporizador de la batalla
         StartCoroutine(BucleTemporizador());
     }
 
@@ -106,10 +110,80 @@ public class AttackSceneManager : MonoBehaviour
         {
             if (catalogMap.TryGetValue(bData.buildingId, out BuildingItemSO buildingSO))
             {
-                // Aquí llamamos a GridPlacementManager para instanciar cada edificio en la cuadrícula
                 pManager.PlaceBuildingFromData(buildingSO, bData.gridX, bData.gridZ);
             }
         }
+    }
+
+    private void CalcularEdificiosObjetivo()
+    {
+        totalEdificiosObjetivo = 0;
+        edificiosDestruidos = 0;
+
+        // Buscamos todos los edificios instanciados en la escena con BuildingHealth
+        BuildingHealth[] todosLosEdificios = FindObjectsByType<BuildingHealth>(FindObjectsSortMode.None);
+
+        foreach (var edificio in todosLosEdificios)
+        {
+            BuildingObject bObj = edificio.GetComponent<BuildingObject>();
+            if (bObj != null && bObj.buildingData != null)
+            {
+                // Si el edificio NO ignora el porcentaje (ej. no es un muro), cuenta para la victoria
+                if (!bObj.buildingData.ignoraPorcentajeDestruccion)
+                {
+                    totalEdificiosObjetivo++;
+
+                    // Nos suscribimos al evento de destrucción de cada edificio
+                    edificio.OnBuildingDestroyed += RegistrarEdificioDestruido;
+                }
+            }
+        }
+
+        Debug.Log($"[AttackSceneManager] Edificios totales a destruir para el 100%: {totalEdificiosObjetivo}");
+        ActualizarUITextoPorcentaje();
+    }
+
+    private void RegistrarEdificioDestruido(BuildingHealth edificioRoto)
+    {
+        // Desuscribir para evitar fugas de memoria
+        edificioRoto.OnBuildingDestroyed -= RegistrarEdificioDestruido;
+
+        edificiosDestruidos++;
+        ActualizarUITextoPorcentaje();
+
+        // Comprobar si se ha alcanzado el 100% de destrucción
+        if (totalEdificiosObjetivo > 0 && edificiosDestruidos >= totalEdificiosObjetivo)
+        {
+            CompletarVictoria();
+        }
+    }
+
+    private void ActualizarUITextoPorcentaje()
+    {
+        if (textoPorcentajeDestruccion != null)
+        {
+            float porcentaje = 0f;
+            if (totalEdificiosObjetivo > 0)
+            {
+                porcentaje = ((float)edificiosDestruidos / totalEdificiosObjetivo) * 100f;
+            }
+            textoPorcentajeDestruccion.text = $"Destrucción: {Mathf.RoundToInt(porcentaje)}%";
+        }
+    }
+
+    private void CompletarVictoria()
+    {
+        if (batallaTerminada) return;
+        batallaTerminada = true;
+
+        Debug.Log("[AttackSceneManager] ¡Base enemiga destruida al 100%! Victoria.");
+
+        if (textoResultadoFinBatalla != null)
+        {
+            textoResultadoFinBatalla.text = "¡Victoria Total!";
+        }
+
+        FinalizarBatallaVisuales();
     }
 
     private void BakeNavMesh()
@@ -117,46 +191,42 @@ public class AttackSceneManager : MonoBehaviour
         NavMeshSurface surface = GetNavMeshSurface();
         if (surface != null)
         {
-            // Ajustes de precisión para pasillos
             surface.overrideTileSize = true;
             surface.tileSize = 256;
             surface.overrideVoxelSize = true;
             surface.voxelSize = 0.1f;
-
             surface.BuildNavMesh();
-            Debug.Log("[AttackSceneManager] NavMesh del suelo horneado.");
-        }
-        else
-        {
-            Debug.LogWarning("[AttackSceneManager] No se encontró ningún componente NavMeshSurface en la escena de ataque.");
         }
     }
 
     private void SpawnUnitsFromSelection()
     {
         var gameManager = GameManager.Instance;
-        if (gameManager == null || gameManager.tropasSeleccionadasParaAtaque.Count == 0)
-        {
-            Debug.LogWarning("[AttackSceneManager] No hay tropas seleccionadas para la batalla.");
-            return;
-        }
+        if (gameManager == null || gameManager.tropasSeleccionadasParaAtaque.Count == 0) return;
 
-        // Crear un mapa rápido de ID -> Prefab usando el catálogo configurado en el inspector
         Dictionary<string, GameObject> prefabMap = new Dictionary<string, GameObject>();
         foreach (var item in catalogoPrefabsTropas)
         {
             if (!prefabMap.ContainsKey(item.idTropa)) prefabMap.Add(item.idTropa, item.prefab);
         }
 
-        Vector3 approximateCenter = Vector3.zero;
         var pManager = GetPlacementManager();
-        if (pManager != null)
+        Vector3 spawnCenter = Vector3.zero;
+        float spawnAreaSizeX = 3f;
+        float spawnAreaSizeZ = 3f;
+
+        if (pManager != null && pManager.restrictSpawnArea)
         {
-            float centerOffset = (50 * pManager.cellSize) / 2f;
-            approximateCenter = new Vector3(centerOffset, 0f, centerOffset);
+            float minX = pManager.spawnBlockStartX * pManager.cellSize;
+            float minZ = pManager.spawnBlockStartZ * pManager.cellSize;
+            float maxX = (pManager.spawnBlockStartX + pManager.spawnBlockWidth) * pManager.cellSize;
+            float maxZ = (pManager.spawnBlockStartZ + pManager.spawnBlockLength) * pManager.cellSize;
+
+            spawnCenter = new Vector3((minX + maxX) / 2f, 0f, (minZ + maxZ) / 2f);
+            spawnAreaSizeX = (maxX - minX) * 0.4f;
+            spawnAreaSizeZ = (maxZ - minZ) * 0.4f;
         }
 
-        // Recorrer las tropas elegidas en el diccionario y spawnear la cantidad exacta
         foreach (KeyValuePair<string, int> pair in gameManager.tropasSeleccionadasParaAtaque)
         {
             string idTropa = pair.Key;
@@ -166,26 +236,22 @@ public class AttackSceneManager : MonoBehaviour
             {
                 for (int i = 0; i < cantidad; i++)
                 {
-                    Vector3 randomOffset = new Vector3(Random.Range(-3f, 3f), 0f, Random.Range(-3f, 3f));
+                    Vector3 randomOffset = new Vector3(Random.Range(-spawnAreaSizeX, spawnAreaSizeX), 0f, Random.Range(-spawnAreaSizeZ, spawnAreaSizeZ));
 
-                    if (NavMesh.SamplePosition(approximateCenter + randomOffset, out NavMeshHit hit, 10.0f, NavMesh.AllAreas))
+                    if (NavMesh.SamplePosition(spawnCenter + randomOffset, out NavMeshHit hit, 10.0f, NavMesh.AllAreas))
                     {
                         Instantiate(prefabTropa, hit.position, Quaternion.identity);
                     }
+                    else
+                    {
+                        Instantiate(prefabTropa, spawnCenter, Quaternion.identity);
+                    }
                 }
-            }
-            else
-            {
-                Debug.LogWarning($"[AttackSceneManager] No se encontró el prefab en el catálogo para la tropa ID: '{idTropa}'");
             }
         }
 
-        // Refrescar el SelectionManager para que reconozca a las unidades recién spawneadas
         var selectionManager = ServiceLocator.Get<SelectionManager>();
-        if (selectionManager != null)
-        {
-            selectionManager.RefreshUnitList();
-        }
+        if (selectionManager != null) selectionManager.RefreshUnitList();
     }
 
     private IEnumerator BucleTemporizador()
@@ -201,25 +267,26 @@ public class AttackSceneManager : MonoBehaviour
             }
         }
 
-        FinalizarBatalla();
+        if (!batallaTerminada)
+        {
+            // Tiempo agotado sin llegar al 100%
+            batallaTerminada = true;
+            if (textoResultadoFinBatalla != null)
+            {
+                textoResultadoFinBatalla.text = "¡Tiempo Agotado!";
+            }
+            FinalizarBatallaVisuales();
+        }
     }
 
-    private void FinalizarBatalla()
+    private void FinalizarBatallaVisuales()
     {
-        if (batallaTerminada) return;
-        batallaTerminada = true;
-
-        Debug.Log("[AttackSceneManager] ¡Tiempo agotado! Fin de la batalla.");
-
         if (panelFinBatalla != null)
         {
             panelFinBatalla.SetActive(true);
         }
     }
 
-    /// <summary>
-    /// Método público para asignar al botón "Volver a la Base" en el panel de fin de batalla.
-    /// </summary>
     public void OnClickVolverABase()
     {
         if (GameManager.Instance != null)

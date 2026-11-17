@@ -26,7 +26,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 187958122011361891}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0.4423828, y: 0, z: -2.54128}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -57,6 +57,11 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 98a183cb8b3238b4da05aecf13aaa35b, type: 2}
   validPlacementMaterial: {fileID: 2100000, guid: df26406906b47ad4ba501df712c89508, type: 2}
   invalidPlacementMaterial: {fileID: 2100000, guid: d5c1484d15ed0814a9ea329f893a79c5, type: 2}
+  restrictSpawnArea: 1
+  spawnBlockStartX: 0
+  spawnBlockStartZ: 13
+  spawnBlockWidth: 15
+  spawnBlockLength: 25
 --- !u!114 &3817430154711559251
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -69,4 +74,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4e9b20a6f250114482fa6b7d8d59e26, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GridSaveLoadManager
-  placementManager: {fileID: 3534182162488411051}
