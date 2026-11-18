@@ -16,8 +16,6 @@ public class GridSaveLoadManager : MonoBehaviour
         }
 
         Instance = this;
-
-        // Registrar en el ServiceLocator
         ServiceLocator.Register(this);
     }
 
@@ -52,14 +50,13 @@ public class GridSaveLoadManager : MonoBehaviour
         GridPlacementManager pManager = GetPlacementManager();
         if (pManager != null)
         {
-            // Extraemos los edificios colocados en la cuadrícula
             GridSaveData currentGrid = pManager.ExportGridState();
             accountManager.CurrentPlayerData.placedBuildings = currentGrid.placedBuildings;
         }
 
-        // Llamamos al AccountManager para que persista los cambios en el JSON del usuario
+        // Guarda la base y todos los datos de PlayerData en el JSON del usuario
         accountManager.SaveCurrentPlayerData();
-        Debug.Log("[GridSaveLoadManager] Base y recursos guardados automáticamente en el perfil del usuario.");
+        Debug.Log("[GridSaveLoadManager] Base y datos guardados automáticamente en el perfil del usuario.");
     }
 
     // ==========================================
@@ -85,6 +82,15 @@ public class GridSaveLoadManager : MonoBehaviour
         pManager.ClearGrid();
 
         List<PlacedBuildingData> savedBuildings = accountManager.CurrentPlayerData.placedBuildings;
+
+        // Sincronizar UI de recursos globales al cargar el perfil del usuario
+        var gameManager = ServiceLocator.Get<GameManager>();
+        if (gameManager != null)
+        {
+            // Forzamos un evento o notificación si tienes UIManager escuchando
+            // (O puedes llamar directamente a refrescar la UI de recursos aquí si lo requieres)
+        }
+
         if (savedBuildings == null || savedBuildings.Count == 0)
         {
             Debug.Log("[GridSaveLoadManager] El usuario no tiene edificios guardados (base nueva).");

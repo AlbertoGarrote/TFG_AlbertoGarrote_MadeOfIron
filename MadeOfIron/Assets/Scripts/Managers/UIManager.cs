@@ -1,17 +1,21 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI; // Asegúrate de incluir esto para usar Button
+using UnityEngine.UI;
+using TMPro; // Añadido para mostrar recursos en texto
 using UnityEngine.SceneManagement;
 
 public class UIManager : MonoBehaviour
 {
     [Header("Paneles de la UI")]
     public GameObject shopPanel;
-    public GameObject armyPanel; // Panel para gestionar y reclutar tropas
+    public GameObject armyPanel;
 
     [Header("Botones de UI")]
-    public GameObject armyButton; // Botón para abrir el panel de ejército (solo en Exploración)
-    public Button attackButton;   // Referencia al botón de atacar para bloquearlo visualmente
+    public GameObject armyButton;
+    public Button attackButton;
+
+    [Header("Textos de UI (Recursos)")]
+    [SerializeField] private TextMeshProUGUI textoRecursosGlobales; // Muestra los recursos del GameManager en pantalla
 
     [Header("Referencias a Managers")]
     public GridPlacementManager placementManager;
@@ -30,6 +34,10 @@ public class UIManager : MonoBehaviour
         {
             gameManager.OnStateChanged += HandleStateChanged;
             HandleStateChanged(gameManager.CurrentState);
+
+            // Suscribirse al cambio de recursos para actualizar la UI en tiempo real
+            gameManager.OnResourcesChanged += ActualizarTextoRecursos;
+            ActualizarTextoRecursos(gameManager.GetPlayerResources());
         }
 
         var saveLoadManager = ServiceLocator.Get<GridSaveLoadManager>();
@@ -47,6 +55,15 @@ public class UIManager : MonoBehaviour
         if (gameManager != null)
         {
             gameManager.OnStateChanged -= HandleStateChanged;
+            gameManager.OnResourcesChanged -= ActualizarTextoRecursos;
+        }
+    }
+
+    private void ActualizarTextoRecursos(int cantidadActual)
+    {
+        if (textoRecursosGlobales != null)
+        {
+            textoRecursosGlobales.text = $"Recursos: {cantidadActual}";
         }
     }
 
@@ -57,11 +74,9 @@ public class UIManager : MonoBehaviour
 
         if (shopPanel != null) shopPanel.SetActive(isEditing);
 
-        // El botón y el panel de ejército solo se gestionan en Exploración
         if (armyButton != null) armyButton.SetActive(isExploring);
-        if (armyPanel != null && !isExploring) armyPanel.SetActive(false); // Ocultar si cambia de estado
+        if (armyPanel != null && !isExploring) armyPanel.SetActive(false);
 
-        // Cada vez que cambiamos de estado (por ejemplo, volvemos a exploración), actualizamos el botón
         if (isExploring)
         {
             ActualizarEstadoBotonAtaque();
@@ -86,7 +101,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // Método para abrir/cerrar el panel de ejército desde la UI
     public void ToggleArmyPanel()
     {
         if (armyPanel != null)
@@ -94,7 +108,6 @@ public class UIManager : MonoBehaviour
             bool willBeOpen = !armyPanel.activeSelf;
             armyPanel.SetActive(willBeOpen);
 
-            // Si cerramos el panel de ejército, actualizamos el botón de ataque por si han cambiado las tropas
             if (!willBeOpen)
             {
                 ActualizarEstadoBotonAtaque();
@@ -128,7 +141,6 @@ public class UIManager : MonoBehaviour
 
     public void OnClickAttackButton()
     {
-        // Doble comprobación por seguridad por si se invoca por código
         if (!TieneTropasSeleccionadas())
         {
             Debug.LogWarning("[UIManager] No se puede atacar: Se necesita al menos 1 unidad en el ejército.");
@@ -141,16 +153,13 @@ public class UIManager : MonoBehaviour
         var saveLoadManager = ServiceLocator.Get<GridSaveLoadManager>();
         if (saveLoadManager != null) saveLoadManager.GuardarBaseDelUsuario();
 
-        // 1. Obtener las tropas seleccionadas del ArmyManager
         var armyManager = ServiceLocator.Get<ArmyManager>();
         Dictionary<string, int> tropasElegidas = armyManager != null
             ? armyManager.ObtenerTropasSeleccionadas()
             : new Dictionary<string, int>();
 
-        // 2. Generar o cargar base enemiga aleatoria
         string enemyJson = SimulatedMatchmakingManager.ObtenerBaseEnemigaAleatoria();
 
-        // 3. Iniciar secuencia de ataque pasando el JSON y las tropas seleccionadas
         var gameManager = ServiceLocator.Get<GameManager>();
         if (gameManager != null)
         {

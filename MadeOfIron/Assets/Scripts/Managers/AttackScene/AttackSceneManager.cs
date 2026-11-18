@@ -20,17 +20,25 @@ public class AttackSceneManager : MonoBehaviour
 
     [Header("UI de Batalla y Progreso")]
     [SerializeField] private TextMeshProUGUI textoTemporizador;
-    [SerializeField] private TextMeshProUGUI textoPorcentajeDestruccion; // Texto UI para mostrar el % ej: "Destrucción: 45%"
+    [SerializeField] private TextMeshProUGUI textoPorcentajeDestruccion;
+    [SerializeField] private TextMeshProUGUI textoBotinActual;     // NUEVO: Cuánto llevas robado en tiempo real
+    [SerializeField] private TextMeshProUGUI textoBotinMaximo;      // NUEVO: Cuánto es el máximo que se puede robar en total
+
     [SerializeField] private GameObject panelFinBatalla;
-    [SerializeField] private TextMeshProUGUI textoResultadoFinBatalla;  // Opcional: Para mostrar "¡Victoria!" o "Derrota / Tiempo Agotado"
+    [SerializeField] private TextMeshProUGUI textoResultadoFinBatalla;
+    [SerializeField] private TextMeshProUGUI textoBotiginRobadoFinal; // Muestra el total robado al terminar
     [SerializeField] private float duracionBatallaSegundos = 60f;
+
+    [Header("Economía de Ataque")]
+    [SerializeField] private int recursosTotalesEnemigoSimulado = 2000; // Recursos base que tiene el enemigo
 
     private float tiempoRestante;
     private bool batallaTerminada = false;
 
-    // Control de destrucción
     private int totalEdificiosObjetivo = 0;
     private int edificiosDestruidos = 0;
+
+    private int botinMaximoPosible = 0;
 
     private GridPlacementManager GetPlacementManager()
     {
@@ -52,13 +60,13 @@ public class AttackSceneManager : MonoBehaviour
         if (panelFinBatalla != null) panelFinBatalla.SetActive(false);
         tiempoRestante = duracionBatallaSegundos;
 
-        // Esperamos un frame para asegurar la inicialización de los componentes y el ServiceLocator
+        // Calculamos de antemano el máximo botín posible (30% del total del enemigo)
+        botinMaximoPosible = Mathf.RoundToInt(recursosTotalesEnemigoSimulado * 0.30f);
+
         yield return null;
 
-        // 1. Horneamos el NavMesh PRIMERO con el suelo limpio
         BakeNavMesh();
 
-        // 2. Cargar la base enemiga desde el JSON guardado en GameManager
         string jsonToLoad = "";
         var gameManager = ServiceLocator.Get<GameManager>();
         if (gameManager != null && !string.IsNullOrEmpty(gameManager.BaseToAttackJson))
@@ -71,20 +79,15 @@ public class AttackSceneManager : MonoBehaviour
             LoadBaseFromJSON(jsonToLoad);
         }
 
-        // 3. Contar cuántos edificios válidos (excluyendo muros) hay en la base cargada
         CalcularEdificiosObjetivo();
 
-        // 4. Desactivar controles de edición
         GridPlacementManager pManager = GetPlacementManager();
         if (pManager != null)
         {
             pManager.enabled = false;
         }
 
-        // 5. Spawnear las tropas seleccionadas
         SpawnUnitsFromSelection();
-
-        // 6. Iniciar el temporizador de la batalla
         StartCoroutine(BucleTemporizador());
     }
 
@@ -120,7 +123,6 @@ public class AttackSceneManager : MonoBehaviour
         totalEdificiosObjetivo = 0;
         edificiosDestruidos = 0;
 
-        // Buscamos todos los edificios instanciados en la escena con BuildingHealth
         BuildingHealth[] todosLosEdificios = FindObjectsByType<BuildingHealth>(FindObjectsSortMode.None);
 
         foreach (var edificio in todosLosEdificios)
@@ -128,46 +130,61 @@ public class AttackSceneManager : MonoBehaviour
             BuildingObject bObj = edificio.GetComponent<BuildingObject>();
             if (bObj != null && bObj.buildingData != null)
             {
-                // Si el edificio NO ignora el porcentaje (ej. no es un muro), cuenta para la victoria
                 if (!bObj.buildingData.ignoraPorcentajeDestruccion)
                 {
                     totalEdificiosObjetivo++;
-
-                    // Nos suscribimos al evento de destrucción de cada edificio
                     edificio.OnBuildingDestroyed += RegistrarEdificioDestruido;
                 }
             }
         }
 
-        Debug.Log($"[AttackSceneManager] Edificios totales a destruir para el 100%: {totalEdificiosObjetivo}");
-        ActualizarUITextoPorcentaje();
+        ActualizarUIProgresoYBotin();
     }
 
     private void RegistrarEdificioDestruido(BuildingHealth edificioRoto)
     {
-        // Desuscribir para evitar fugas de memoria
         edificioRoto.OnBuildingDestroyed -= RegistrarEdificioDestruido;
-
         edificiosDestruidos++;
-        ActualizarUITextoPorcentaje();
+        ActualizarUIProgresoYBotin();
 
-        // Comprobar si se ha alcanzado el 100% de destrucción
         if (totalEdificiosObjetivo > 0 && edificiosDestruidos >= totalEdificiosObjetivo)
         {
             CompletarVictoria();
         }
     }
 
-    private void ActualizarUITextoPorcentaje()
+    private float ObtenerPorcentajeActual()
     {
+        if (totalEdificiosObjetivo <= 0) return 0f;
+        return ((float)edificiosDestruidos / totalEdificiosObjetivo) * 100f;
+    }
+
+    private int CalcularBotinActual()
+    {
+        float porcentaje = ObtenerPorcentajeActual();
+        // El botín actual escala proporcionalmente al % de destrucción respecto al máximo posible (30%)
+        float proporcionRobo = (porcentaje / 100f) * 0.30f;
+        return Mathf.RoundToInt(recursosTotalesEnemigoSimulado * proporcionRobo);
+    }
+
+    private void ActualizarUIProgresoYBotin()
+    {
+        float porcentaje = ObtenerPorcentajeActual();
+        int botinActual = CalcularBotinActual();
+
         if (textoPorcentajeDestruccion != null)
         {
-            float porcentaje = 0f;
-            if (totalEdificiosObjetivo > 0)
-            {
-                porcentaje = ((float)edificiosDestruidos / totalEdificiosObjetivo) * 100f;
-            }
             textoPorcentajeDestruccion.text = $"Destrucción: {Mathf.RoundToInt(porcentaje)}%";
+        }
+
+        if (textoBotinActual != null)
+        {
+            textoBotinActual.text = $"Robado: {botinActual}";
+        }
+
+        if (textoBotinMaximo != null)
+        {
+            textoBotinMaximo.text = $"Máximo a robar: {botinMaximoPosible}";
         }
     }
 
@@ -176,14 +193,35 @@ public class AttackSceneManager : MonoBehaviour
         if (batallaTerminada) return;
         batallaTerminada = true;
 
-        Debug.Log("[AttackSceneManager] ¡Base enemiga destruida al 100%! Victoria.");
-
         if (textoResultadoFinBatalla != null)
         {
             textoResultadoFinBatalla.text = "¡Victoria Total!";
         }
 
-        FinalizarBatallaVisuales();
+        FinalizarBatallaConBotin();
+    }
+
+    private void FinalizarBatallaConBotin()
+    {
+        int recursosRobados = CalcularBotinActual();
+
+        // Otorgar los recursos al jugador
+        var gameManager = GameManager.Instance;
+        if (gameManager != null)
+        {
+            gameManager.AñadirRecursos(recursosRobados);
+        }
+
+        // Mostrar en la UI del panel de finalización
+        if (textoBotiginRobadoFinal != null)
+        {
+            textoBotiginRobadoFinal.text = $"¡Has conseguido {recursosRobados} recursos en esta batalla!";
+        }
+
+        if (panelFinBatalla != null)
+        {
+            panelFinBatalla.SetActive(true);
+        }
     }
 
     private void BakeNavMesh()
@@ -269,21 +307,12 @@ public class AttackSceneManager : MonoBehaviour
 
         if (!batallaTerminada)
         {
-            // Tiempo agotado sin llegar al 100%
             batallaTerminada = true;
             if (textoResultadoFinBatalla != null)
             {
                 textoResultadoFinBatalla.text = "¡Tiempo Agotado!";
             }
-            FinalizarBatallaVisuales();
-        }
-    }
-
-    private void FinalizarBatallaVisuales()
-    {
-        if (panelFinBatalla != null)
-        {
-            panelFinBatalla.SetActive(true);
+            FinalizarBatallaConBotin();
         }
     }
 

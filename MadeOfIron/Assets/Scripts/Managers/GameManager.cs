@@ -1,20 +1,17 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
-// Definición de los estados de la escena de la base
 public enum BaseState
 {
-    Exploration, // Modo normal: ver recursos, interactuar con edificios existentes, abrir menús
-    Editing,      // Modo construcción/edición: colocar nuevos objetos, mover o borrar estructuras
-    Attacking    // Modo ataque: escena de combate/simulación
+    Exploration,
+    Editing,
+    Attacking
 }
 
 public class GameManager : MonoBehaviour
 {
-    // Instancia Singleton estática
     public static GameManager Instance { get; private set; }
 
     [Header("Estado Actual")]
@@ -23,11 +20,10 @@ public class GameManager : MonoBehaviour
     public string BaseToAttackJson { get; set; }
 
     [Header("Tropas Seleccionadas para el Ataque")]
-    // Clave: ID de la tropa | Valor: Cantidad seleccionada por el jugador
     public Dictionary<string, int> tropasSeleccionadasParaAtaque = new Dictionary<string, int>();
 
-    // Evento C# para notificar a otros scripts cuando el estado cambie
     public event Action<BaseState> OnStateChanged;
+    public event Action<int> OnResourcesChanged; // Para refrescar la UI de recursos
 
     private void Awake()
     {
@@ -38,43 +34,99 @@ public class GameManager : MonoBehaviour
         }
 
         Instance = this;
-
-        ServiceLocator.Register(this); // Registrar en ServiceLocator
-
-        DontDestroyOnLoad(gameObject); // Persiste entre escenas si es necesario
+        ServiceLocator.Register(this);
+        DontDestroyOnLoad(gameObject);
     }
 
-    // Método para cambiar de estado desde cualquier lugar (UI, botones, accesos directos)
     public void ChangeState(BaseState newState)
     {
         if (CurrentState == newState) return;
 
         CurrentState = newState;
         Debug.Log($"[GameManager] Estado cambiado a: {CurrentState}");
-
-        // Notificar a todos los sistemas suscritos (UI, GridPlacementManager, etc.)
         OnStateChanged?.Invoke(CurrentState);
     }
 
-    // Método que llama el botón "Atacar" desde la base (actualizado para recibir tropas)
     public void StartAttackSequence(string jsonLayout, Dictionary<string, int> tropasElegidas, string attackSceneName = "AttackScene")
     {
         BaseToAttackJson = jsonLayout;
         tropasSeleccionadasParaAtaque = tropasElegidas != null ? new Dictionary<string, int>(tropasElegidas) : new Dictionary<string, int>();
         ChangeState(BaseState.Attacking);
 
-        // Cambiamos a la escena de ataque
         SceneManager.LoadScene(attackSceneName);
     }
 
-    // Método para volver a la aldea desde la escena de ataque
-    public void ReturnToBuildMode(string buildSceneName = "BaseScene") 
+    public void ReturnToBuildMode(string buildSceneName = "BaseScene")
     {
         ChangeState(BaseState.Exploration);
         SceneManager.LoadScene(buildSceneName);
     }
 
-    // Métodos helper rápidos
+    // ==========================================
+    // GESTIÓN DE RECURSOS Y DATOS VINCULADOS AL JUGADOR
+    // ==========================================
+
+    private AccountManager GetAccountManager()
+    {
+        return ServiceLocator.Get<AccountManager>();
+    }
+
+    public int GetPlayerResources()
+    {
+        var accManager = GetAccountManager();
+        if (accManager != null && accManager.CurrentPlayerData != null)
+        {
+            return accManager.CurrentPlayerData.recursos;
+        }
+        return 500; // Valor por defecto si no hay sesión
+    }
+
+    public void AñadirRecursos(int cantidad)
+    {
+        if (cantidad <= 0) return;
+
+        var accManager = GetAccountManager();
+        if (accManager != null && accManager.CurrentPlayerData != null)
+        {
+            accManager.CurrentPlayerData.recursos += cantidad;
+
+            // Guardamos automáticamente en el JSON del usuario
+            accManager.SaveCurrentPlayerData();
+
+            int totalActual = accManager.CurrentPlayerData.recursos;
+            OnResourcesChanged?.Invoke(totalActual);
+            Debug.Log($"[GameManager] Añadidos {cantidad} recursos a '{accManager.CurrentPlayerData.username}'. Total actual: {totalActual}");
+        }
+        else
+        {
+            Debug.LogWarning("[GameManager] No se pudieron añadir recursos: No hay AccountManager o PlayerData activo.");
+        }
+    }
+
+    // Métodos útiles para consultar Nivel y Experiencia del jugador actual
+    public int GetPlayerLevel()
+    {
+        var accManager = GetAccountManager();
+        return (accManager != null && accManager.CurrentPlayerData != null) ? accManager.CurrentPlayerData.playerLevel : 1;
+    }
+
+    public int GetPlayerExp()
+    {
+        var accManager = GetAccountManager();
+        return (accManager != null && accManager.CurrentPlayerData != null) ? accManager.CurrentPlayerData.currentExp : 0;
+    }
+
+    public void AñadirExp(int cantidadExp)
+    {
+        var accManager = GetAccountManager();
+        if (accManager != null && accManager.CurrentPlayerData != null)
+        {
+            accManager.CurrentPlayerData.currentExp += cantidadExp;
+            accManager.SaveCurrentPlayerData();
+            Debug.Log($"[GameManager] Experiencia añadida. Total Exp: {accManager.CurrentPlayerData.currentExp}");
+        }
+    }
+
     public bool IsEditing() => CurrentState == BaseState.Editing;
     public bool IsExploring() => CurrentState == BaseState.Exploration;
     public bool IsAttacking() => CurrentState == BaseState.Attacking;
