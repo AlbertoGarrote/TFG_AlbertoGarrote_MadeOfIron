@@ -110,12 +110,23 @@ public class AccountManager : MonoBehaviour
     {
         if (CurrentPlayerData == null) return;
 
-        // Si estamos en la escena de base, actualizamos los edificios actuales antes de guardar
-        var gridPlacement = ServiceLocator.Get<GridPlacementManager>();
-        if (gridPlacement != null)
+        // SEGURIDAD: Solo exportamos y guardamos la grilla si estamos en la escena de construcción/exploración (BaseScene)
+        // NUNCA debemos exportar la grilla si estamos en la escena de ataque ("AttackScene")
+        string escenaActual = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool esEscenaDeBase = escenaActual.Contains("Base") || escenaActual.Contains("Exploration");
+
+        if (esEscenaDeBase)
         {
-            GridSaveData currentGrid = gridPlacement.ExportGridState();
-            CurrentPlayerData.placedBuildings = currentGrid.placedBuildings;
+            var gridPlacement = ServiceLocator.Get<GridPlacementManager>();
+            if (gridPlacement != null)
+            {
+                GridSaveData currentGrid = gridPlacement.ExportGridState();
+                CurrentPlayerData.placedBuildings = currentGrid.placedBuildings;
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[AccountManager] Intento de guardado de base bloqueado: No estás en la escena de la base (Estás en " + escenaActual + "). Se conservarán tus edificios originales.");
         }
 
         string filePath = GetUserFilePath(CurrentPlayerData.username);

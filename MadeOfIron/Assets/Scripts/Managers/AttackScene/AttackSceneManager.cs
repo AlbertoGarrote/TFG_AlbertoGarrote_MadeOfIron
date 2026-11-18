@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.AI;
 using Unity.AI.Navigation;
@@ -21,16 +22,17 @@ public class AttackSceneManager : MonoBehaviour
     [Header("UI de Batalla y Progreso")]
     [SerializeField] private TextMeshProUGUI textoTemporizador;
     [SerializeField] private TextMeshProUGUI textoPorcentajeDestruccion;
-    [SerializeField] private TextMeshProUGUI textoBotinActual;     // NUEVO: Cuánto llevas robado en tiempo real
-    [SerializeField] private TextMeshProUGUI textoBotinMaximo;      // NUEVO: Cuánto es el máximo que se puede robar en total
+    [SerializeField] private TextMeshProUGUI textoBotinActual;     // Cuánto llevas robado en tiempo real
+    [SerializeField] private TextMeshProUGUI textoBotinMaximo;      // Máximo posible a robar (30%)
 
     [SerializeField] private GameObject panelFinBatalla;
     [SerializeField] private TextMeshProUGUI textoResultadoFinBatalla;
-    [SerializeField] private TextMeshProUGUI textoBotiginRobadoFinal; // Muestra el total robado al terminar
+    [SerializeField] private TextMeshProUGUI textoBotiginRobadoFinal; // Total robado al terminar
     [SerializeField] private float duracionBatallaSegundos = 60f;
 
-    [Header("Economía de Ataque")]
-    [SerializeField] private int recursosTotalesEnemigoSimulado = 2000; // Recursos base que tiene el enemigo
+    [Header("Economía de Ataque Real")]
+    private int recursosTotalesBaseEnemiga = 0; // Se extraerá del JSON del defensor
+    private string usernameDefensor = "";     // Nombre del defensor para descontarle los recursos
 
     private float tiempoRestante;
     private bool batallaTerminada = false;
@@ -60,9 +62,6 @@ public class AttackSceneManager : MonoBehaviour
         if (panelFinBatalla != null) panelFinBatalla.SetActive(false);
         tiempoRestante = duracionBatallaSegundos;
 
-        // Calculamos de antemano el máximo botín posible (30% del total del enemigo)
-        botinMaximoPosible = Mathf.RoundToInt(recursosTotalesEnemigoSimulado * 0.30f);
-
         yield return null;
 
         BakeNavMesh();
@@ -76,8 +75,15 @@ public class AttackSceneManager : MonoBehaviour
 
         if (!string.IsNullOrEmpty(jsonToLoad))
         {
-            LoadBaseFromJSON(jsonToLoad);
+            LoadBaseAndEconomyFromJSON(jsonToLoad);
         }
+        else
+        {
+            recursosTotalesBaseEnemiga = 2000; // Respaldo por defecto si no hay JSON
+        }
+
+        // Calculamos el botín máximo posible (30% de los recursos reales de la base enemiga)
+        botinMaximoPosible = Mathf.RoundToInt(recursosTotalesBaseEnemiga * 0.30f);
 
         CalcularEdificiosObjetivo();
 
@@ -91,13 +97,31 @@ public class AttackSceneManager : MonoBehaviour
         StartCoroutine(BucleTemporizador());
     }
 
-    private void LoadBaseFromJSON(string jsonContent)
+    private void LoadBaseAndEconomyFromJSON(string jsonContent)
     {
+        // 1. Extraer la economía y el nombre del defensor desde el JSON completo (PlayerData)
+        try
+        {
+            PlayerData playerDataEnemigo = JsonUtility.FromJson<PlayerData>(jsonContent);
+            if (playerDataEnemigo != null)
+            {
+                recursosTotalesBaseEnemiga = playerDataEnemigo.recursos;
+                usernameDefensor = playerDataEnemigo.username;
+                Debug.Log($"[AttackSceneManager] Base enemiga cargada de '{usernameDefensor}'. Recursos totales del rival: {recursosTotalesBaseEnemiga}");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[AttackSceneManager] Error al leer los datos de economía del enemigo: {e.Message}");
+            recursosTotalesBaseEnemiga = 2000;
+        }
+
+        // 2. Instanciar los edificios en la grilla usando la estructura de guardado
         GridPlacementManager pManager = GetPlacementManager();
         if (pManager == null) return;
 
-        GridSaveData saveData = JsonUtility.FromJson<GridSaveData>(jsonContent);
-        if (saveData == null || saveData.placedBuildings == null) return;
+        GridSaveData saveDataGrid = JsonUtility.FromJson<GridSaveData>(jsonContent);
+        if (saveDataGrid == null || saveDataGrid.placedBuildings == null) return;
 
         pManager.ClearGrid();
 
@@ -109,7 +133,7 @@ public class AttackSceneManager : MonoBehaviour
             if (!catalogMap.ContainsKey(key)) catalogMap.Add(key, item);
         }
 
-        foreach (var bData in saveData.placedBuildings)
+        foreach (var bData in saveDataGrid.placedBuildings)
         {
             if (catalogMap.TryGetValue(bData.buildingId, out BuildingItemSO buildingSO))
             {
@@ -162,9 +186,9 @@ public class AttackSceneManager : MonoBehaviour
     private int CalcularBotinActual()
     {
         float porcentaje = ObtenerPorcentajeActual();
-        // El botín actual escala proporcionalmente al % de destrucción respecto al máximo posible (30%)
+        // Escala proporcionalmente al % de destrucción respecto al máximo del 30% de los recursos del enemigo
         float proporcionRobo = (porcentaje / 100f) * 0.30f;
-        return Mathf.RoundToInt(recursosTotalesEnemigoSimulado * proporcionRobo);
+        return Mathf.RoundToInt(recursosTotalesBaseEnemiga * proporcionRobo);
     }
 
     private void ActualizarUIProgresoYBotin()
@@ -205,22 +229,52 @@ public class AttackSceneManager : MonoBehaviour
     {
         int recursosRobados = CalcularBotinActual();
 
-        // Otorgar los recursos al jugador
+        // 1. Sumar los recursos al jugador atacante actual a través del GameManager
         var gameManager = GameManager.Instance;
         if (gameManager != null)
         {
             gameManager.AñadirRecursos(recursosRobados);
         }
 
-        // Mostrar en la UI del panel de finalización
+        // 2. Restar los recursos robados al archivo JSON individual del jugador defensor
+        if (!string.IsNullOrEmpty(usernameDefensor) && recursosRobados > 0)
+        {
+            RestarRecursosAJugadorDefensor(usernameDefensor, recursosRobados);
+        }
+
+        // 3. Mostrar el resultado en el panel de fin de batalla
         if (textoBotiginRobadoFinal != null)
         {
-            textoBotiginRobadoFinal.text = $"¡Has conseguido {recursosRobados} recursos en esta batalla!";
+            textoBotiginRobadoFinal.text = $"¡Has conseguido {recursosRobados} recursos robados!";
         }
 
         if (panelFinBatalla != null)
         {
             panelFinBatalla.SetActive(true);
+        }
+    }
+
+    private void RestarRecursosAJugadorDefensor(string username, int cantidadRestar)
+    {
+        string safeUsername = username.Trim().ToLower();
+        string filePath = Path.Combine(Application.persistentDataPath, $"save_{safeUsername}.json");
+
+        if (File.Exists(filePath))
+        {
+            string jsonContent = File.ReadAllText(filePath);
+            PlayerData defensorData = JsonUtility.FromJson<PlayerData>(jsonContent);
+
+            if (defensorData != null)
+            {
+                // Restamos asegurando que los recursos del defensor nunca bajen de 0
+                defensorData.recursos = Mathf.Max(0, defensorData.recursos - cantidadRestar);
+
+                // Guardamos los cambios en el archivo JSON del defensor
+                string jsonOutput = JsonUtility.ToJson(defensorData, true);
+                File.WriteAllText(filePath, jsonOutput);
+
+                Debug.Log($"[AttackSceneManager] Se han descontado {cantidadRestar} recursos al defensor '{username}'. Le quedan: {defensorData.recursos}");
+            }
         }
     }
 

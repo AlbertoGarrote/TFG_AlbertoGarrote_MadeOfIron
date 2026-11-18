@@ -150,9 +150,6 @@ public class UIManager : MonoBehaviour
         GridPlacementManager pManager = GetPlacementManager();
         if (pManager == null) return;
 
-        var saveLoadManager = ServiceLocator.Get<GridSaveLoadManager>();
-        if (saveLoadManager != null) saveLoadManager.GuardarBaseDelUsuario();
-
         var armyManager = ServiceLocator.Get<ArmyManager>();
         Dictionary<string, int> tropasElegidas = armyManager != null
             ? armyManager.ObtenerTropasSeleccionadas()
